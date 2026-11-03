@@ -1,0 +1,9 @@
+{
+  "name": "ace-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 scripts/build-worker.py",
+    "check": "python3 scripts/check.py && node --test tests/*.test.mjs"
+  }
+}

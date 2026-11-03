@@ -18,8 +18,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Check site
-        run: python3 scripts/check.py
+        run: |
+          python3 scripts/check.py
+          node tests/dashboard.test.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

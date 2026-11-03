@@ -7,10 +7,59 @@
 <title>Higher Ground Dashboard | Ace Tools</title>
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="./dashboard.css">
+<script type="module" src="./dashboard.mjs"></script>
 </head>
-<body>
+<body class="dashboard-body">
 <div class="ambient" aria-hidden="true"></div>
 <header><a class="brand" href="../"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M20 5 35 33H5L20 5Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M13 26h14M20 18v8" stroke="currentColor" stroke-width="3"/></svg><span>Ace Tools</span></a></header>
-<main><section class="tool-page"><div class="emblem"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 20 6-11 4 6 3-5 5 10H3Z"/><path d="M16 10V3m0 0h5l-2 2 2 2h-5"/></svg></div><h1>Higher Ground Dashboard</h1><p>Under construction.</p><a class="back" href="../"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>Ace Tools</span></a></section></main>
+<main class="dashboard-main">
+  <section class="dashboard-heading">
+    <div><span class="eyebrow">Ace Tools</span><h1>Higher Ground<span class="period">.</span></h1></div>
+    <div class="heading-actions"><span id="build-label" class="build-label" hidden>Build mode</span><button id="build-button" class="button quiet" type="button">Build mode</button><button id="lock-button" class="icon-button" type="button" title="Lock dashboard" aria-label="Lock dashboard" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></button></div>
+  </section>
+  <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+  <div class="dashboard-stage">
+    <div id="dashboard-content" class="dashboard-content is-locked" inert aria-hidden="true">
+      <div class="toolbar"><label class="category-select">Category<select id="category-filter" aria-label="Filter by category"><option value="*">All categories</option></select></label><button id="add-card" class="button primary" type="button" hidden>+ Add card</button></div>
+      <div id="cards" class="cards-grid"></div>
+      <p id="empty" class="empty-state" hidden>No cards yet.</p>
+    </div>
+    <form id="unlock-form" class="unlock-panel glass-panel">
+      <div class="gate-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+      <h2>Higher Ground</h2>
+      <label for="access-code">Access code</label>
+      <div class="unlock-input"><input id="access-code" name="code" type="password" placeholder="Access code" autocomplete="off" autocapitalize="none" spellcheck="false" required maxlength="60"><button class="icon-button" aria-label="Unlock dashboard" title="Unlock dashboard" type="submit">→</button></div>
+      <p id="unlock-error" class="form-error" role="alert"></p>
+    </form>
+  </div>
+  <noscript><p>Enable JavaScript to use the dashboard.</p></noscript>
+</main>
+<dialog id="login-dialog" class="glass-panel">
+  <form id="login-form">
+    <div class="dialog-heading"><h2>Build mode</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
+    <label for="username">Username</label><input id="username" name="username" autocomplete="username" required maxlength="100">
+    <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="100">
+    <p id="login-error" class="form-error" role="alert"></p>
+    <button class="button primary full" type="submit">Sign in</button>
+  </form>
+</dialog>
+<dialog id="card-dialog" class="glass-panel">
+  <form id="card-form">
+    <div class="dialog-heading"><h2 id="card-dialog-title">Add card</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
+    <label for="metric">Metric</label><input id="metric" name="metric" required maxlength="100">
+    <label for="category">Category</label><input id="category" name="category" list="categories" maxlength="60" placeholder="Uncategorized"><datalist id="categories"></datalist>
+    <div class="form-columns"><div><label for="goal">Goal</label><input id="goal" name="goal" type="number" step="any" min="0.000000001" max="1000000000000000" required></div><div><label for="current">Current number</label><input id="current" name="current" type="number" step="any" min="-1000000000000000" max="1000000000000000" required></div></div>
+    <p id="card-error" class="form-error" role="alert"></p>
+    <div class="dialog-actions"><button id="delete-card" class="button danger" type="button" hidden>Delete</button><button class="button primary save-card" type="submit">Save</button></div>
+  </form>
+</dialog>
+<dialog id="history-dialog" class="glass-panel history-dialog">
+  <div class="dialog-heading"><h2 id="history-title">History</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
+  <div id="history-content" aria-live="polite"></div>
+</dialog>
+<dialog id="delete-dialog" class="glass-panel">
+  <form id="delete-form"><div class="dialog-heading"><h2>Delete card?</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div><p id="delete-name"></p><p id="delete-error" class="form-error" role="alert"></p><div class="dialog-actions"><button class="button quiet" type="button" data-close>Cancel</button><button class="button danger" type="submit">Delete</button></div></form>
+</dialog>
 </body>
 </html>

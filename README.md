@@ -1,26 +1,46 @@
 # Ace Tools
 
-A static, dependency-free tool hub with a glossy dark and red theme.
+Glossy dark tool hub with a shared Higher Ground dashboard.
 
-## Pages
+## Dashboard
 
-- `dist/index.html`: landing page and tool links.
-- `dist/special-orders/index.html`: Special Orders scaffold.
-- `dist/screen-pricing/index.html`: Screen Pricing scaffold.
-- `dist/higher-ground-dashboard/index.html`: Higher Ground Dashboard scaffold.
+The GitHub Pages frontend and the Sites frontend use the same Sites Worker API and persistent D1 database. No dashboard records are stored in Git or browser storage. Session storage holds only the visitor access code and the expiring admin session.
 
-Tool pages display “Under construction.” Replace them with tool implementations, or change the three landing-page links to existing tool URLs.
+- Enter the lowercase visitor code to reveal the dashboard.
+- Enter build mode with the configured admin credentials.
+- Add or edit a metric, category, positive goal, and current number.
+- Each number update records the previous value and change history.
+- In-progress cards sort first; categories filter the shared cards.
+- Progress discs are red below goal and green at or above goal. Exceeding a goal adds a gold border and glow.
+- Other visitors refresh shared data every 15 seconds while the page is visible.
 
-## Local preview
+The shared code and password provide basic access control. Use stronger values for sensitive data. The source repository is public by the user's choice.
 
-Run `python3 -m http.server 8080 --directory dist` and open http://localhost:8080.
+## Source
 
-## Private GitHub repository and public GitHub Pages
+- `dist/`: static frontend published to GitHub Pages.
+- `worker/index.js`: API, access checks, persistent writes, and static route handler.
+- `drizzle/`: immutable D1 schema migrations.
+- `.openai/hosting.json`: Sites identity and database binding.
+- `scripts/build-worker.py`: bundles static assets and the Worker into `outputs/site/`.
+- `tests/dashboard.test.mjs`: API integration tests against SQLite and progress/sort checks.
 
-Create a **private** repository named `ace-tools`, push this source, then choose **GitHub Actions** under Settings → Pages. The included workflow publishes only `dist/` on pushes to `main`.
+## Runtime configuration
 
-GitHub Pages from a private repository requires a supported paid plan (GitHub Pro, Team, or Enterprise). Set the Pages site audience to public where the setting is available. Repository privacy and site access are separate. Published HTML, CSS, and browser code are publicly downloadable; never put secrets in `dist/`.
+Store `ADMIN_PASSWORD`, `VIEW_CODE`, and a random `SESSION_SECRET` in Sites runtime secrets. The username is `admin`. Passwords and signing keys must never be placed in static files, Git, or frontend build variables. The Worker reads `env.DB` from the Sites-provisioned D1 binding. Sites applies migrations before deployment.
 
-If the GitHub plan does not support Pages from private repositories, retain private GitHub source and use the public Sites deployment.
+## Checks and builds
 
-Run `python3 scripts/check.py` before pushing.
+```sh
+python3 scripts/check.py
+node tests/dashboard.test.mjs
+python3 scripts/build-worker.py
+```
+
+Requires Python 3 and Node 24. The API tests run all migration SQL against an isolated in-memory SQLite database. Browser preview requires the supported managed preview/browser tools.
+
+## Deployment
+
+Pushes to GitHub `main` publish `dist/` through the Pages workflow. Backend changes also require packaging `outputs/site/` from the exact pushed Sites source commit, saving the version, and deploying through Sites. Keep the API origin in `dist/higher-ground-dashboard/dashboard.mjs` and the Worker CORS allowlist aligned with both frontend origins.
+
+The Sites project and GitHub repository share source but have separate deployments. Static Pages hosting cannot run the shared database API on its own.
