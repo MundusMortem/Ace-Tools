@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../worker/index.js';
-import {progress, orderedCards} from '../dist/higher-ground-dashboard/model.mjs';
+import {progress, orderedCards, formatValue, formatChange, discSegments} from '../dist/higher-ground-dashboard/model.mjs';
 
 function fixture() {
   const sql = new DatabaseSync(':memory:');
-  sql.exec(readFileSync(new URL('../drizzle/0000_dashboard.sql', import.meta.url), 'utf8'));
+  for (const file of readdirSync(new URL('../drizzle/', import.meta.url)).filter(name => name.endsWith('.sql')).sort()) {
+    sql.exec(readFileSync(new URL('../drizzle/' + file, import.meta.url), 'utf8'));
+  }
   class Statement {
     constructor(query, args = []) { this.query = query; this.args = args; }
     bind(...args) { return new Statement(this.query, args); }
@@ -108,4 +110,52 @@ test('in-progress cards sort before completed cards, categories filter accuratel
   const cards = [{id:'a',current:110,goal:100,category:'Sales',created_at:'1'}, {id:'b',current:25,goal:100,category:'Sales',created_at:'2'}, {id:'c',current:50,goal:100,category:'Other',created_at:'3'}];
   assert.deepEqual(orderedCards(cards).map(c=>c.id), ['c','b','a']);
   assert.deepEqual(orderedCards(cards,'Sales').map(c=>c.id), ['b','a']);
+});
+test('formats persist across shared reads and number updates; old clients preserve selected format', async () => {
+  const {request, login, env} = fixture(); const token = await login();
+  for (const format of ['number', 'percent', 'dollars']) {
+    const created = await request('/api/cards', {method: 'POST', token, data: {...input, format}});
+    assert.equal(created.status, 201); assert.equal(created.data.card.format, format);
+    const card = created.data.card;
+    const updated = await request('/api/cards/' + card.id, {method: 'PATCH', token, data: {...input, current: 50, version: 1}});
+    assert.equal(updated.data.card.format, format); assert.equal(updated.data.card.previous, 35);
+    const changeFormat = await request('/api/cards/' + card.id, {method: 'PATCH', token, data: {...input, current: 50, version: 2, format: 'dollars'}});
+    assert.equal(changeFormat.data.card.format, 'dollars'); assert.equal(changeFormat.data.card.previous, 35);
+    const history = await request('/api/cards/' + card.id + '/history', {code: env.VIEW_CODE});
+    assert.equal(history.data.history.length, 2);
+  }
+  const viewer = await request('/api/dashboard', {code: env.VIEW_CODE});
+  assert.ok(viewer.data.cards.every(card => card.format === 'dollars'));
+  for (const format of ['', 'currency', null, 5]) {
+    assert.equal((await request('/api/cards', {method: 'POST', token, data: {...input, format}})).status, 400);
+  }
+});
+test('format migration retains existing card numbers and history', () => {
+  const sql = new DatabaseSync(':memory:');
+  sql.exec(readFileSync(new URL('../drizzle/0000_dashboard.sql', import.meta.url), 'utf8'));
+  sql.prepare('INSERT INTO cards (id,metric,goal,current,previous,created_at,updated_at) VALUES (?,?,?,?,?,?,?)').run('existing','Revenue',100,60,40,'2026-11-03','2026-11-03');
+  sql.prepare('INSERT INTO card_history (id,card_id,previous,current,updated_at) VALUES (?,?,?,?,?)').run('history','existing',40,60,'2026-11-03');
+  sql.exec(readFileSync(new URL('../drizzle/0001_card_format.sql', import.meta.url), 'utf8'));
+  const card = sql.prepare('SELECT * FROM cards WHERE id = ?').get('existing');
+  assert.equal(card.format, 'number'); assert.equal(card.current, 60); assert.equal(card.previous, 40);
+  assert.equal(sql.prepare('SELECT count(*) as count FROM card_history').get().count, 1);
+});
+test('percentage, dollar and absolute formats show values and changes consistently', () => {
+  assert.equal(formatValue(25, 'percent'), '25%');
+  assert.equal(formatValue(1000.5, 'dollars'), '$1,000.50');
+  assert.equal(formatValue(1000.5, 'number'), '1,000.5');
+  assert.equal(formatValue(2500000, 'dollars', true), '$2.5M');
+  assert.equal(formatChange(5, 'percent'), '+5 pp');
+  assert.equal(formatChange(-25, 'dollars'), '-$25.00');
+  assert.equal(formatChange(10, 'number'), '+10');
+});
+test('disc segments show blue current progress, red shortfall and green excess', () => {
+  assert.deepEqual(discSegments({current: 25, goal: 100}), {blue: .25, red: .75, green: 0});
+  assert.deepEqual(discSegments({current: 100, goal: 100}), {blue: 1, red: 0, green: 0});
+  assert.deepEqual(discSegments({current: 200, goal: 100}), {blue: .5, red: 0, green: .5});
+  assert.deepEqual(discSegments({current: -25, goal: 100}), {blue: 0, red: 1, green: 0});
+  for (const current of [0, 40, 100, 120, 300]) {
+    const s = discSegments({current, goal: 100});
+    assert.ok(Math.abs(s.blue + s.red + s.green - 1) < 1e-10);
+  }
 });

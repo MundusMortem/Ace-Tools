@@ -49,7 +49,8 @@
     <div class="dialog-heading"><h2 id="card-dialog-title">Add card</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
     <label for="metric">Metric</label><input id="metric" name="metric" required maxlength="100">
     <label for="category">Category</label><input id="category" name="category" list="categories" maxlength="60" placeholder="Uncategorized"><datalist id="categories"></datalist>
-    <div class="form-columns"><div><label for="goal">Goal</label><input id="goal" name="goal" type="number" step="any" min="0.000000001" max="1000000000000000" required></div><div><label for="current">Current number</label><input id="current" name="current" type="number" step="any" min="-1000000000000000" max="1000000000000000" required></div></div>
+    <label for="number-format">Number format</label><select id="number-format" name="format"><option value="number">Absolute number</option><option value="percent">Percent (%)</option><option value="dollars">Dollars ($)</option></select>
+    <div class="form-columns"><div><label id="goal-label" for="goal">Goal</label><input id="goal" name="goal" type="number" step="any" min="0.000000001" max="1000000000000000" required></div><div><label id="current-label" for="current">Current number</label><input id="current" name="current" type="number" step="any" min="-1000000000000000" max="1000000000000000" required></div></div>
     <p id="card-error" class="form-error" role="alert"></p>
     <div class="dialog-actions"><button id="delete-card" class="button danger" type="button" hidden>Delete</button><button class="button primary save-card" type="submit">Save</button></div>
   </form>

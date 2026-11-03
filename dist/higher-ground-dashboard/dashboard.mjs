@@ -1,8 +1,7 @@
-import {progress, orderedCards} from './model.mjs';
+import {progress, orderedCards, formatValue, formatChange, discSegments} from './model.mjs';
 const API = 'https://ace-tools.bonnylight3.chatgpt.site';
 const $ = id => document.getElementById(id);
 const num = value => new Intl.NumberFormat(undefined, {maximumFractionDigits: 2}).format(value);
-const signed = value => (value > 0 ? '+' : '') + num(value);
 const storage = {
   get(key) { try { return sessionStorage.getItem(key) || ''; } catch { return ''; } },
   set(key, value) { try { value ? sessionStorage.setItem(key, value) : sessionStorage.removeItem(key); } catch {} }
@@ -83,29 +82,33 @@ async function refresh({silent = false} = {}) {
     throw error;
   } finally { loading = false; }
 }
-function ring(p, metric) {
+function ring(p, card) {
+  const segments = discSegments(card);
   const disc = element('div', 'disc');
   disc.setAttribute('role', 'img');
-  disc.setAttribute('aria-label', `${metric}: ${num(p.percentage)}% of goal`);
+  disc.setAttribute('aria-label', `${card.metric}: ${formatValue(card.current, card.format)} of ${formatValue(card.goal, card.format)} (${num(p.percentage)}% of goal)`);
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', '0 0 220 220'); svg.setAttribute('aria-hidden', 'true');
-  function circle(radius, cls, fraction) {
+  function circle(radius, cls, fraction, start = 0) {
     const node = document.createElementNS(ns, 'circle');
     for (const [key, value] of Object.entries({cx: 110, cy: 110, r: radius, class: cls})) node.setAttribute(key, value);
     if (fraction !== undefined) {
       const length = 2 * Math.PI * radius;
       node.setAttribute('stroke-dasharray', `${fraction * length} ${length}`);
+      node.setAttribute('stroke-dashoffset', String(-start * length));
       if (fraction <= 0) node.setAttribute('visibility', 'hidden');
     }
     svg.append(node);
   }
   circle(100, 'disc-ticks'); circle(85, 'disc-track'); circle(73, 'disc-inner');
-  circle(85, 'disc-progress', p.arc); circle(94, 'disc-extra', p.overage);
+  circle(85, 'disc-gap', segments.red, segments.blue);
+  circle(85, 'disc-progress', segments.blue);
+  circle(85, 'disc-extra', segments.green, segments.blue);
   disc.append(svg);
   const label = element('div', 'disc-label');
-  const percentage = new Intl.NumberFormat(undefined, {maximumFractionDigits: 0, notation: Math.abs(p.percentage) > 9999 ? 'compact' : 'standard'}).format(p.percentage) + '%';
-  label.append(element('strong', percentage.length > 5 ? 'small' : '', percentage), element('span', '', p.exceeded ? 'Exceeded' : p.reached ? 'At goal' : 'In progress'));
+  const current = formatValue(card.current, card.format, true);
+  label.append(element('strong', current.length > 6 ? 'small' : '', current), element('small', 'disc-target', 'of ' + formatValue(card.goal, card.format, true)), element('span', '', p.exceeded ? 'Exceeded' : p.reached ? 'At goal' : 'In progress'));
   disc.append(label); return disc;
 }
 function render() {
@@ -136,15 +139,15 @@ function render() {
     }
     const values = element('dl', 'metric-values');
     for (const [name, value] of [['Current', card.current], ['Goal', card.goal]]) {
-      const block = element('div'); block.append(element('dt', '', name), element('dd', '', num(value))); values.append(block);
+      const block = element('div'); block.append(element('dt', '', name), element('dd', '', formatValue(value, card.format))); values.append(block);
     }
     const bottom = element('div', 'card-bottom');
-    const delta = element('div', 'delta' + (p.delta > 0 ? ' positive' : p.delta < 0 ? ' negative' : ''), p.delta == null ? '—' : `${p.delta > 0 ? '↗ ' : p.delta < 0 ? '↘ ' : ''}${signed(p.delta)}`);
-    delta.append(element('span', 'previous', card.previous == null ? 'No previous number' : 'Previous ' + num(card.previous)));
+    const delta = element('div', 'delta' + (p.delta > 0 ? ' positive' : p.delta < 0 ? ' negative' : ''), p.delta == null ? '—' : `${p.delta > 0 ? '↗ ' : p.delta < 0 ? '↘ ' : ''}${formatChange(p.delta, card.format)}`);
+    delta.append(element('span', 'previous', card.previous == null ? 'No previous number' : 'Previous ' + formatValue(card.previous, card.format)));
     const history = element('button', 'history-button', 'History'); history.type = 'button'; history.dataset.action = 'history';
     history.setAttribute('aria-label', 'History for ' + card.metric); history.addEventListener('click', () => openHistory(card));
     bottom.append(delta, history);
-    article.append(top, ring(p, card.metric), values, bottom); $('cards').append(article);
+    article.append(top, ring(p, card), values, bottom); $('cards').append(article);
   }
   if (focusedCard && focusedAction) {
     const target = [...$('cards').children].find(card => card.dataset.id === focusedCard)?.querySelector(`[data-action="${focusedAction}"]`);
@@ -156,6 +159,7 @@ function openCard(card = null) {
   $('card-dialog-title').textContent = card ? 'Edit card' : 'Add card';
   $('metric').value = card?.metric || ''; $('category').value = card?.category ?? (filter === '*' ? '' : filter);
   $('goal').value = card?.goal ?? ''; $('current').value = card?.current ?? '';
+  $('number-format').value = card?.format || 'number'; updateFormatLabels();
   $('delete-card').hidden = !card; $('card-error').textContent = '';
   $('card-dialog').showModal();
 }
@@ -167,10 +171,10 @@ async function openHistory(card) {
     const list = element('ol', 'history-list');
     for (const row of history) {
       const item = element('li', 'history-row'), detail = element('div');
-      detail.append(element('span', 'history-value', num(row.current)));
+      detail.append(element('span', 'history-value', formatValue(row.current, card.format)));
       const time = element('time', '', new Date(row.updated_at).toLocaleString()); time.dateTime = row.updated_at; detail.append(time);
       const delta = row.previous == null ? null : row.current - row.previous;
-      const change = element('span', 'history-change' + (delta > 0 ? ' positive' : delta < 0 ? ' negative' : ''), delta == null ? 'Initial' : signed(delta));
+      const change = element('span', 'history-change' + (delta > 0 ? ' positive' : delta < 0 ? ' negative' : ''), delta == null ? 'Initial' : formatChange(delta, card.format));
       item.append(detail, change); list.append(item);
     }
     $('history-content').replaceChildren(history.length ? list : element('p', '', 'No history yet.'));
@@ -212,11 +216,17 @@ $('login-form').addEventListener('submit', event => {
 });
 $('lock-button').addEventListener('click', () => { lock(); $('access-code').focus(); });
 $('add-card').addEventListener('click', () => openCard());
+function updateFormatLabels() {
+  const suffix = {number: '', percent: ' (%)', dollars: ' ($)'}[$('number-format').value] || '';
+  $('goal-label').textContent = 'Goal' + suffix;
+  $('current-label').textContent = 'Current number' + suffix;
+}
+$('number-format').addEventListener('change', updateFormatLabels);
 $('category-filter').addEventListener('change', event => { filter = event.target.value; render(); });
 $('card-form').addEventListener('submit', event => {
   event.preventDefault();
   busy(event.currentTarget, async () => {
-    const data = {metric: $('metric').value, category: $('category').value, goal: Number($('goal').value), current: Number($('current').value)};
+    const data = {metric: $('metric').value, category: $('category').value, goal: Number($('goal').value), current: Number($('current').value), format: $('number-format').value};
     if (editing) data.version = editing.version;
     const {card} = await api(editing ? `/api/cards/${editing.id}` : '/api/cards', {method: editing ? 'PATCH' : 'POST', body: JSON.stringify(data)});
     cards = cards.filter(item => item.id !== card.id).concat(card);

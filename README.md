@@ -11,7 +11,8 @@ The GitHub Pages frontend and the Sites frontend use the same Sites Worker API a
 - Add or edit a metric, category, positive goal, and current number.
 - Each number update records the previous value and change history.
 - In-progress cards sort first; categories filter the shared cards.
-- Progress discs are red below goal and green at or above goal. Exceeding a goal adds a gold border and glow.
+- Choose absolute numbers, percentages, or US dollars per card. Enter 25 for 25%; percentage changes are shown in percentage points (pp). Formats apply to current, goal, previous numbers, and history.
+- Progress discs show current progress in blue, the remaining gap in glowing red, and excess in green. Exceeding a goal adds a gold border and glow.
 - Other visitors refresh shared data every 15 seconds while the page is visible.
 
 The shared code and password provide basic access control. Use stronger values for sensitive data. The source repository is public by the user's choice.

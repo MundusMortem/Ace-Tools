@@ -45,7 +45,8 @@ function cardInput(data) {
   if (!metric || metric.length > 100 || category.length > 60) problem('Enter a metric and a category of up to 60 characters.');
   if (typeof data.goal !== 'number' || !Number.isFinite(data.goal) || data.goal <= 0 || data.goal > maxNumber) problem('Goal must be greater than zero.');
   if (typeof data.current !== 'number' || !Number.isFinite(data.current) || Math.abs(data.current) > maxNumber) problem('Enter a valid current number.');
-  return {metric, category, goal: data.goal, current: data.current};
+  if (data.format !== undefined && !['number', 'percent', 'dollars'].includes(data.format)) problem('Choose a valid number format.');
+  return {metric, category, goal: data.goal, current: data.current, format: data.format ?? null};
 }
 function version(data) { if (!Number.isInteger(data.version) || data.version < 1) problem('Refresh this card and try again.', 409); return data.version; }
 async function api(request, env) {
@@ -78,7 +79,7 @@ async function api(request, env) {
     const data = cardInput(await body(request));
     const id = crypto.randomUUID(), now = new Date().toISOString();
     await env.DB.batch([
-      env.DB.prepare('INSERT INTO cards (id, metric, category, goal, current, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, data.metric, data.category, data.goal, data.current, now, now),
+      env.DB.prepare('INSERT INTO cards (id, metric, category, goal, current, created_at, updated_at, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, data.metric, data.category, data.goal, data.current, now, now, data.format ?? 'number'),
       env.DB.prepare('INSERT INTO card_history (id, card_id, current, updated_at) VALUES (?, ?, ?, ?)').bind(crypto.randomUUID(), id, data.current, now)
     ]);
     return json({card: await env.DB.prepare('SELECT * FROM cards WHERE id = ?').bind(id).first()}, 201);
@@ -88,7 +89,7 @@ async function api(request, env) {
     const input = await body(request), data = cardInput(input), v = version(input), now = new Date().toISOString();
     const result = await env.DB.batch([
       env.DB.prepare('INSERT INTO card_history (id, card_id, previous, current, updated_at) SELECT ?, id, current, ?, ? FROM cards WHERE id = ? AND version = ? AND current != ?').bind(crypto.randomUUID(), data.current, now, match[1], v, data.current),
-      env.DB.prepare('UPDATE cards SET metric = ?, category = ?, goal = ?, previous = CASE WHEN current != ? THEN current ELSE previous END, current = ?, updated_at = ?, version = version + 1 WHERE id = ? AND version = ? RETURNING *').bind(data.metric, data.category, data.goal, data.current, data.current, now, match[1], v)
+      env.DB.prepare('UPDATE cards SET metric = ?, category = ?, goal = ?, format = COALESCE(?, format), previous = CASE WHEN current != ? THEN current ELSE previous END, current = ?, updated_at = ?, version = version + 1 WHERE id = ? AND version = ? RETURNING *').bind(data.metric, data.category, data.goal, data.format, data.current, data.current, now, match[1], v)
     ]);
     const card = result[1].results[0];
     if (!card) problem('Card changed. Refresh and try again.', 409);
