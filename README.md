@@ -9,7 +9,7 @@ A static, dependency-free tool hub with a glossy dark and red theme.
 - `dist/screen-pricing/index.html`: Screen Pricing scaffold.
 - `dist/higher-ground-dashboard/index.html`: Higher Ground Dashboard scaffold.
 
-Tool pages are unconfigured scaffolds. Replace them with tool implementations, or change the three landing-page links to existing tool URLs.
+Tool pages display “Under construction.” Replace them with tool implementations, or change the three landing-page links to existing tool URLs.
 
 ## Local preview
 
