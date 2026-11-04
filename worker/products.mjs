@@ -119,17 +119,17 @@ async function publicRetailerPage(initial, fetcher) {
   if (!current) return null;
   for (let redirects = 0; redirects < 5; redirects++) {
     const url = new URL(current);
-    if (!RETAIL_HOSTS.has(url.hostname) && !(CATALOG_HOSTS.has(url.hostname) && url.pathname.startsWith('/norob/'))) return null;
+    if (!RETAIL_HOSTS.has(url.hostname) && !(CATALOG_HOSTS.has(url.hostname) && url.pathname.startsWith('/norob/'))) { console.warn('Retailer redirect unsupported', url.hostname); return null; }
     const response = await fetcher(url.href, {redirect: 'manual', signal, headers: {'Accept': 'text/html', 'User-Agent': 'AceToolsProductLookup/1.0'}});
     if ([301,302,303,307,308].includes(response.status)) {
-      const location = response.headers.get('Location'); if (!location) return null;
+      const location = response.headers.get('Location'); if (!location) { console.warn('Retailer redirect missing location', url.hostname); return null; }
       await response.body?.cancel();
       const redirected = safeProductURL(new URL(location, current).href);
       current = directRetailerURL(redirected) || redirected; if (!current) return null;
       continue;
     }
     if (!response.ok || !RETAIL_HOSTS.has(url.hostname)) { console.warn('Retailer verification fetch failed', url.hostname, response.status); await response.body?.cancel(); return null; }
-    if (!response.headers.get('Content-Type')?.includes('text/html')) { await response.body?.cancel(); return null; }
+    if (!response.headers.get('Content-Type')?.includes('text/html')) { console.warn('Retailer page was not HTML', url.hostname, response.headers.get('Content-Type')); await response.body?.cancel(); return null; }
     const reader = response.body?.getReader(); if (!reader) return null;
     const decoder = new TextDecoder(); let html = '', bytes = 0;
     try { while (true) { const {done,value} = await reader.read(); if (done) break; bytes += value.byteLength; if (bytes > 1500000) break; html += decoder.decode(value, {stream: true}); } }
@@ -189,7 +189,7 @@ export async function productLookup(request, env, fetcher = fetch) {
   const barcode = productBarcode(new URL(request.url).searchParams.get('barcode'));
   if (!env.DB) fail('Product lookup is unavailable.', 503);
   const now = Date.now();
-  const cached = await env.DB.prepare('SELECT data FROM product_cache WHERE barcode = ? AND expires_at > ?').bind('verified-v2:' + gtinKey(barcode), now).first();
+  const cached = await env.DB.prepare('SELECT data FROM product_cache WHERE barcode = ? AND expires_at > ?').bind('verified-v3:' + gtinKey(barcode), now).first();
   if (cached) {
     const data = JSON.parse(cached.data);
     data.offers = verifiedListings(data.offers, now);
@@ -204,7 +204,7 @@ export async function productLookup(request, env, fetcher = fetch) {
   if (!await quota(env.DB, 'day:' + day, 90, (day+1)*86400000)) fail('Product lookup limit reached. Try later or search the stores below.', 429);
   const result = await findProduct(barcode, fetcher, now);
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO product_cache (barcode, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(barcode) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at').bind('verified-v2:' + gtinKey(barcode), JSON.stringify(result), now + 300000),
+    env.DB.prepare('INSERT INTO product_cache (barcode, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(barcode) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at').bind('verified-v3:' + gtinKey(barcode), JSON.stringify(result), now + 300000),
     env.DB.prepare('DELETE FROM product_cache WHERE expires_at < ?').bind(now - 86400000),
     env.DB.prepare('DELETE FROM lookup_limits WHERE expires_at < ?').bind(now)
   ]);
