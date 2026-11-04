@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productBarcode, expandUPCE, catalogOffers, selectBestOffer, retailerProduct, retailerItemNumber, findProduct, productLookup, safeProductURL} from '../worker/products.mjs';
+import {readFileSync} from 'node:fs';
+import {verifiedListings} from '../dist/scanner/listings.mjs';
+import {productBarcode, expandUPCE, catalogOffers, selectBestOffer, retailerProduct, retailerItemNumber, findProduct, productLookup, safeProductURL, directRetailerURL, currentRetailerOffer} from '../worker/products.mjs';
 import worker from '../worker/index.js';
 import {testDatabase} from './helpers/database.mjs';
 const barcode='045242271061';
@@ -24,7 +26,7 @@ test('only exact barcode matches produce an identified item; model is never infe
 });
 test('out-of-stock, old, used and foreign prices cannot become a best USD price',()=>{
  const offers=catalogOffers({offers:[listing('old.example',1,{updated_t:now/1000-864000}),listing('foreign.example',2,{currency:'CAD'}),listing('used.example',3,{condition:'Used'}),listing('sold.example',4,{availability:'Out of Stock'}),listing('current.example',20)]},now);
- assert.equal(selectBestOffer(offers,now).offer.price,20);
+ assert.equal(selectBestOffer(offers,now),null);
  assert.equal(selectBestOffer(offers.filter(o=>o.price!==20),now),null);
  const verified={...offers.at(-1),price:25,verified:true};assert.equal(selectBestOffer([...offers,verified],now).kind,'verified');
  assert.equal(selectBestOffer([...offers,verified],now).offer.price,25);
@@ -49,7 +51,7 @@ test('Ace is preferred to True Value and current verified prices come from exact
 });
 test('mismatched retailer GTIN cannot supply a SKU, model or verified price',async()=>{
  const fake=async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[{...product,offers:[listing('acehardware.com')]}]}):new Response(page({'@type':'Product',gtin12:'012800511730',sku:'wrong',mpn:'wrong',offers:{price:1,priceCurrency:'USD',availability:'https://schema.org/InStock'}}),{headers:{'Content-Type':'text/html'}});
- const r=await findProduct(barcode,fake,now);assert.equal(r.item_number,null);assert.equal(r.model,product.model);assert.equal(r.offers[0].verified,false);
+ const r=await findProduct(barcode,fake,now);assert.equal(r.item_number,null);assert.equal(r.model,product.model);assert.equal(r.offers.length,0);
 });
 test('untrusted URLs and redirect targets are never fetched',async()=>{
  const called=[];
@@ -72,8 +74,47 @@ test('shared cache prevents repeat provider calls and daily budget is bounded',a
 });
 test('product endpoint is public without dashboard credentials and honors CORS',async()=>{
  const DB=testDatabase();const data={barcode,found:true,title:'Cached product',offers:[],links:[]};
- DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run(barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
+ DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('verified-v2:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
  const r=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode,{headers:{Origin:'https://mundusmortem.github.io'}}),{DB});
  assert.equal(r.status,200);assert.equal((await r.json()).title,'Cached product');assert.equal(r.headers.get('access-control-allow-origin'),'https://mundusmortem.github.io');
  const bad=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode=123'),{DB});assert.equal(bad.status,400);
+});
+
+test('reported UPC 043156961306 unwraps the Ace tracker and reads nested priceSpecification', async()=>{
+ const official=JSON.parse(readFileSync(new URL('./fixtures/ace-57997.json',import.meta.url),'utf8'));
+ const code='043156961306';const seen=[];
+ const canonical='https://www.acehardware.com/departments/hardware/door-knobs-and-locks/keyed-door-levers-and-knobs/57997';
+ const fake=async url=>{
+  seen.push(url);
+  if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[{upc:code,title:official.name,model:'F40V PLY 605',offers:[listing('acehardware.com',1,{link:'https://www.upcitemdb.com/norob/alink/?id=reported'})]}]});
+  if(url.startsWith('https://www.upcitemdb.com/'))return new Response(null,{status:302,headers:{Location:'https://www.gopjn.com/t/example?url='+encodeURIComponent('https://www.acehardware.com/p/57997')}});
+  if(url==='https://www.acehardware.com/p/57997')return new Response(null,{status:301,headers:{Location:canonical}});
+  assert.equal(url,canonical);return new Response(page(official),{headers:{'Content-Type':'text/html'}});
+ };
+ const result=await findProduct(code,fake,now);
+ assert.equal(result.item_number.number,'57997');assert.equal(result.item_number.merchant,'Ace Hardware');
+ assert.equal(result.offers.length,1);assert.equal(result.offers[0].price,29.99);assert.equal(result.offers[0].verified,true);assert.equal(result.best.kind,'verified');
+ assert.ok(seen.every(url=>!url.startsWith('https://www.gopjn.com/')));
+});
+test('only three lowest distinct merchants with verified current USD prices are retained',()=>{
+ const offer=(domain,price,extra={})=>({...listing(domain,price),url:'https://'+domain+'/product',updated_at:new Date(now).toISOString(),available:true,verified:true,...extra});
+ const offers=[offer('five.example',50),offer('one.example',12),offer('two.example',20),offer('three.example',30),offer('four.example',40),offer('one.example',10),offer('old.example',1,{updated_at:new Date(now-300001).toISOString()}),offer('unverified.example',2,{verified:false}),offer('out.example',3,{available:false}),offer('cad.example',4,{currency:'CAD'}),offer('future.example',5,{updated_at:new Date(now+1000).toISOString()})];
+ assert.deepEqual(verifiedListings(offers,now).map(o=>o.price),[10,20,30]);
+ assert.equal(selectBestOffer(offers,now).offer.price,10);
+});
+test('expired, future, member-only and out-of-stock prices are not verified',()=>{
+ const raw={price:20,priceCurrency:'USD',availability:'https://schema.org/InStock'};
+ for(const changes of [{availability:'https://schema.org/OutOfStock'},{priceValidUntil:'2026-11-03'},{validFrom:'2026-11-05'},{validForMemberTier:'club'},{itemCondition:'https://schema.org/UsedCondition'}])assert.equal(currentRetailerOffer({offers:{...raw,...changes}},now),null);
+ const nested={availability:raw.availability,priceSpecification:[{price:1,priceCurrency:'USD',priceType:'https://schema.org/StrikethroughPrice'},{price:2,priceCurrency:'USD',validForMemberTier:'club'},{price:29.99,priceCurrency:'USD'}]};
+ assert.equal(currentRetailerOffer({offers:nested},now).price,29.99);
+});
+test('tracking URLs are unwrapped only to approved HTTPS retailer targets',()=>{
+ assert.equal(directRetailerURL('https://www.gopjn.com/t/example?url='+encodeURIComponent('https://www.acehardware.com/p/57997')),'https://www.acehardware.com/p/57997');
+ for(const target of ['http://169.254.169.254/','https://fake-acehardware.com/p/57997','javascript:alert(1)','https://user:password@www.acehardware.com/p/57997'])assert.equal(directRetailerURL('https://tracker.example/?url='+encodeURIComponent(target)),null);
+});
+test('legacy cached listings cannot bypass new verification requirements', async()=>{
+ const DB=testDatabase();const request=new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode);
+ DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run(barcode.padStart(14,'0'),JSON.stringify({found:true,title:'Legacy catalog listing',offers:[listing('acehardware.com',1)]}),Date.now()+100000);
+ let called=0;const result=await productLookup(request,{DB},async()=>{called++;return response({items:[product]});});
+ assert.equal(called,1);assert.equal(result.title,product.title);assert.deepEqual(result.offers,[]);assert.equal(result.best,null);
 });

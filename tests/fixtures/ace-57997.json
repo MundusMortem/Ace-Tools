@@ -1,0 +1,20 @@
+{
+  "@type": "Product",
+  "name": "Schlage Plymouth Bright Brass Privacy Lockset 1-3/4 in.",
+  "sku": "57997",
+  "gtin": "043156961306",
+  "mpn": "F40VPLY605",
+  "offers": {
+    "@type": "Offer",
+    "url": "https://www.acehardware.com/departments/hardware/door-knobs-and-locks/keyed-door-levers-and-knobs/57997",
+    "itemCondition": "https://schema.org/NewCondition",
+    "availability": "https://schema.org/InStock",
+    "priceSpecification": [
+      {
+        "@type": "UnitPriceSpecification",
+        "price": 29.99,
+        "priceCurrency": "USD"
+      }
+    ]
+  }
+}

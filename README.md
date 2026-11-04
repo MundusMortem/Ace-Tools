@@ -28,17 +28,20 @@ Frames/photos are decoded locally; only barcode digits go to the Worker lookup A
 
 UPCitemdb identifies matching items and supplied model numbers. The backend checks
 matching retailer GTIN structured data for Ace/True Value item numbers, preferring
-Ace, and verifies live product prices when retailer pages permit it. Unsupported or
-missing fields are shown as unavailable. Only new, available USD offers can become
-the lowest price. Verified item prices and recent catalog listings are distinguished;
-stale, used, out-of-stock or different-currency offers never become the best USD
-price. Listing dates, merchant links and conditions remain visible. Item prices
+Ace, and verifies live product prices when retailer pages permit it. Unconfirmed retailer item numbers are marked not verified; absence is not a claim
+that the retailer does not sell the item. Only the three lowest distinct merchants with verified, available, new USD item prices
+are shown. Every displayed price comes from a fresh, matching retailer product page;
+prices expire after five minutes. Unverified catalog prices, stale prices, used items,
+member-only offers, out-of-stock items, and other currencies are excluded. Ace nested
+UnitPriceSpecification values are supported. Tracking wrappers are unwrapped to approved
+HTTPS retailer URLs without fetching the tracker. Check times and direct merchant links
+remain visible. Item prices
 exclude tax/shipping and local store pricing can differ. No claim of an exhaustive
 market search is made. Unknown items and provider failures retain direct store and
 shopping search links.
 
 UPCitemdb's signup-free trial allows 100 combined requests/day. The app caches
-lookups for 20 minutes and reserves at most 90 uncached requests/day, with a per-IP
+lookups for five minutes and reserves at most 90 uncached requests/day, with a per-IP
 burst limit. Quota/provider errors are explicit; no paid subscription is created.
 Retailer fetches are restricted to approved public hosts, refuse unsafe redirects,
 have bounded response sizes, and require exact barcode matches before trusting data.
