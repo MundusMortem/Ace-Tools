@@ -44,7 +44,9 @@ function resultView(data, now = Date.parse(data.server_time) || Date.now()) {
   for (const [label, value] of values) { const block = node('div'); block.append(node('dt', '', label), node('dd', '', value)); details.append(block); }
   const identifier = node('div');
   identifier.append(node('dt', '', data.item_number ? data.item_number.merchant + ' item' : 'Ace / True Value item'));
-  const value = node('dd'); value.append(data.item_number ? link(data.item_number.number + ' ↗', data.item_number.url) : document.createTextNode('Not verified')); identifier.append(value); details.append(identifier);
+  const value = node('dd'); value.append(data.item_number ? link(data.item_number.number + ' ↗', data.item_number.url) : document.createTextNode('Not verified')); identifier.append(value);
+  if (data.item_number?.verified === false) identifier.append(node('span', 'scan-offer-meta', 'Catalog match'));
+  details.append(identifier);
   product.append(details); results.append(product);
   const listings = verifiedListings(data.offers, now);
   if (listings.length) {

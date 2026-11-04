@@ -28,7 +28,10 @@ Frames/photos are decoded locally; only barcode digits go to the Worker lookup A
 
 UPCitemdb identifies matching items and supplied model numbers. The backend checks
 matching retailer GTIN structured data for Ace/True Value item numbers, preferring
-Ace, and verifies live product prices when retailer pages permit it. Unconfirmed retailer item numbers are marked not verified; absence is not a claim
+Ace, and verifies live product prices when retailer pages permit it. Ace barcode
+search is attempted directly before catalog tracking links. If a matching catalog
+link resolves to an Ace item number but the product page is blocked, that number
+is displayed as a catalog match; no price is verified from the catalog link. Unconfirmed retailer item numbers are marked not verified; absence is not a claim
 that the retailer does not sell the item. Only the three lowest distinct merchants with verified, available, new USD item prices
 are shown. Every displayed price comes from a fresh, matching retailer product page;
 prices expire after five minutes. Unverified catalog prices, stale prices, used items,

@@ -74,7 +74,7 @@ test('shared cache prevents repeat provider calls and daily budget is bounded',a
 });
 test('product endpoint is public without dashboard credentials and honors CORS',async()=>{
  const DB=testDatabase();const data={barcode,found:true,title:'Cached product',offers:[],links:[]};
- DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('verified-v5:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
+ DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('verified-v6:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
  const r=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode,{headers:{Origin:'https://mundusmortem.github.io'}}),{DB});
  assert.equal(r.status,200);assert.equal((await r.json()).title,'Cached product');assert.equal(r.headers.get('access-control-allow-origin'),'https://mundusmortem.github.io');
  const bad=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode=123'),{DB});assert.equal(bad.status,400);
@@ -131,4 +131,22 @@ test('Ace barcode search discovers and verifies an item even when the catalog ha
  },now);
  assert.equal(result.item_number.number,'57997');assert.equal(result.best.offer.price,29.99);assert.equal(result.model,'F40VPLY605');assert.equal(result.offers.length,1);
  assert.ok(seen.every(url=>!url.includes('upcitemdb.com/norob')));
+});
+
+test('blocked Ace page retains a labeled catalog item number but no price', async()=>{
+ const code='043156961306';
+ const result=await findProduct(code,async url=>{
+  if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[{upc:code,title:'Schlage privacy knob',offers:[listing('acehardware.com',1,{link:'https://www.upcitemdb.com/norob/alink/?id=reported'})]}]});
+  if(url.startsWith('https://www.upcitemdb.com/'))return new Response(null,{status:302,headers:{Location:'https://www.gopjn.com/t/example?url='+encodeURIComponent('https://www.acehardware.com/p/57997')}});
+  return new Response('Forbidden',{status:403});
+ },now);
+ assert.equal(result.item_number.number,'57997');assert.equal(result.item_number.verified,false);
+ assert.equal(result.best,null);assert.deepEqual(result.offers,[]);assert.equal(result.verification,undefined);
+});
+
+test('catalog SKU fallback is rejected when the live page has a different GTIN or is missing',async()=>{
+ for(const status of [200,404]){
+  const result=await findProduct(barcode,async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[{...product,offers:[listing('acehardware.com',1,{link:'https://www.acehardware.com/p/57997'})]}]}):new Response(page({'@type':'Product',gtin12:'012800511730',sku:'57997'}),{status,headers:{'Content-Type':'text/html'}}),now);
+  assert.equal(result.item_number,null);assert.deepEqual(result.offers,[]);
+ }
 });
