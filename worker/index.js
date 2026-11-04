@@ -1,3 +1,4 @@
+import {productLookup} from './products.mjs';
 const ORIGINS = new Set(['https://mundusmortem.github.io', 'https://ace-tools.bonnylight3.chatgpt.site']);
 const encoder = new TextEncoder();
 const maxNumber = 1e15;
@@ -50,6 +51,7 @@ function cardInput(data) {
 }
 function version(data) { if (!Number.isInteger(data.version) || data.version < 1) problem('Refresh this card and try again.', 409); return data.version; }
 async function api(request, env) {
+  if (new URL(request.url).pathname === '/api/products/lookup' && request.method === 'GET') return json(await productLookup(request, env));
   if (!env.DB || !env.ADMIN_PASSWORD || !env.VIEW_CODE || !env.SESSION_SECRET) problem('Dashboard is unavailable.', 503);
   const path = new URL(request.url).pathname;
   if (path === '/api/login' && request.method === 'POST') {
@@ -119,7 +121,7 @@ export default {
       else response = await api(request, env);
     } catch (error) {
       if (!error.status) console.error('Dashboard request failed:', error.message);
-      response = json({error: error.status ? error.message : 'Unable to save or load the dashboard. Try again.'}, error.status || 500);
+      response = json({error: error.status ? error.message : path.startsWith('/api/products/') ? 'Unable to look up the product. Try again.' : 'Unable to save or load the dashboard. Try again.'}, error.status || 500);
     }
     const headers = new Headers(response.headers);
     headers.set('Vary', 'Origin');

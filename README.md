@@ -17,6 +17,32 @@ The GitHub Pages frontend and the Sites frontend use the same Sites Worker API a
 
 The shared code and password provide basic access control. Use stronger values for sensitive data. The source repository is public by the user's choice.
 
+## Barcode scanner
+
+Every Ace Tools header has the shared scanner icon. Its native/ZXing camera and
+photo decoder is retained from Mundus Apps Macro Tracker (source revision and
+licenses in `dist/scanner/vendor/README.md`). Only the decoder asset path changes;
+the original app is untouched. Camera access requires HTTPS, permission, and an
+available connected camera. Photo and typed UPC/EAN/GTIN entry are fallbacks.
+Frames/photos are decoded locally; only barcode digits go to the Worker lookup API.
+
+UPCitemdb identifies matching items and supplied model numbers. The backend checks
+matching retailer GTIN structured data for Ace/True Value item numbers, preferring
+Ace, and verifies live product prices when retailer pages permit it. Unsupported or
+missing fields are shown as unavailable. Only new, available USD offers can become
+the lowest price. Verified item prices and recent catalog listings are distinguished;
+stale, used, out-of-stock or different-currency offers never become the best USD
+price. Listing dates, merchant links and conditions remain visible. Item prices
+exclude tax/shipping and local store pricing can differ. No claim of an exhaustive
+market search is made. Unknown items and provider failures retain direct store and
+shopping search links.
+
+UPCitemdb's signup-free trial allows 100 combined requests/day. The app caches
+lookups for 20 minutes and reserves at most 90 uncached requests/day, with a per-IP
+burst limit. Quota/provider errors are explicit; no paid subscription is created.
+Retailer fetches are restricted to approved public hosts, refuse unsafe redirects,
+have bounded response sizes, and require exact barcode matches before trusting data.
+
 ## Source
 
 - `dist/`: static frontend published to GitHub Pages.
@@ -35,6 +61,8 @@ Store `ADMIN_PASSWORD`, `VIEW_CODE`, and a random `SESSION_SECRET` in Sites runt
 ```sh
 python3 scripts/check.py
 node tests/dashboard.test.mjs
+node tests/products.test.mjs
+node tests/camera.test.mjs
 python3 scripts/build-worker.py
 ```
 
