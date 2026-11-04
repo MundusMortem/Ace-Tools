@@ -139,19 +139,24 @@ async function publicRetailerPage(initial, fetcher) {
   return null;
 }
 async function enrichRetailer(offer, barcode, now, fetcher) {
-  try {
-    const page = await publicRetailerPage(offer.url, fetcher); if (!page) return null;
-    const domain = new URL(page.url).hostname.replace(/^www\./, '');
-    if (domain !== offer.domain) return null;
-    const product = retailerProduct(page.html, barcode);
-    if (!product) { console.warn('Retailer verification has no matching GTIN', domain); return null; }
-    const identifier = retailerItemNumber(page.url, product.sku);
-    const model = clean(product.mpn || (typeof product.model === 'object' ? product.model.name : product.model), 100);
-    const raw = currentRetailerOffer(product, now);
-    const current = raw ? {...offer, ...raw, domain, url: page.url, shipping: 'Shipping unknown', updated_at: new Date(now).toISOString(), verified: true} : null;
-    return {identifier, model, offer: current};
-  } catch (error) { console.warn('Retailer verification failed', offer.domain, error.name); return null; }
+  let page = null, product = null;
+  for (const url of [offer.url, offer.fallback_url].filter(Boolean)) {
+    try {
+      const candidate = await publicRetailerPage(url, fetcher);
+      if (!candidate || new URL(candidate.url).hostname.replace(/^www\./, '') !== offer.domain) continue;
+      const matched = retailerProduct(candidate.html, barcode);
+      if (matched) { page = candidate; product = matched; break; }
+    } catch (error) { console.warn('Retailer verification failed', offer.domain, error.name); }
+  }
+  if (!product) return null;
+  const identifier = retailerItemNumber(page.url, product.sku);
+  const model = clean(product.mpn || (typeof product.model === 'object' ? product.model.name : product.model), 100);
+  const raw = currentRetailerOffer(product, now);
+  const {fallback_url, ...publicOffer} = offer;
+  const current = raw ? {...publicOffer, ...raw, url: page.url, shipping: 'Shipping unknown', updated_at: new Date(now).toISOString(), verified: true} : null;
+  return {identifier, model, offer: current};
 }
+
 function sourceItem(item, barcode, now) {
   return {barcode, title: clean(item.title, 300), brand: clean(item.brand, 100), model: clean(item.model, 100) || null, item_number: null, offers: catalogOffers(item, now), best: null, source_url: 'https://www.upcitemdb.com/upc/' + barcode, checked_at: new Date(now).toISOString(), links: productSearchLinks(barcode)};
 }
@@ -167,6 +172,9 @@ export async function findProduct(barcode, fetcher = fetch, now = Date.now()) {
   const item = (Array.isArray(body.items) ? body.items : []).find(item => matchesBarcode(item, barcode) && clean(item.title));
   if (!item) return {barcode, found: false, links: productSearchLinks(barcode)};
   const result = sourceItem(item, barcode, now);
+  // Look up the barcode directly with Ace; catalog tracking links are only a fallback.
+  const catalogAce = result.offers.find(offer => offer.domain === 'acehardware.com');
+  result.offers.unshift({merchant: 'Ace Hardware', domain: 'acehardware.com', url: 'https://www.acehardware.com/search?query=' + encodeURIComponent(barcode), fallback_url: catalogAce?.url, price: null, currency: 'USD', condition: 'New', available: false, updated_at: null, verified: false});
   // Reserve verification slots for Ace/True Value, then compare the lowest returned USD offers.
   const priorities = [...result.offers].filter(o => RETAIL_HOSTS.has(o.domain) || RETAIL_HOSTS.has('www.' + o.domain)).sort((a,b) => Number(!['acehardware.com','truevalue.com'].includes(a.domain)) - Number(!['acehardware.com','truevalue.com'].includes(b.domain)) || a.price-b.price).filter(o => o.currency === 'USD');
   const seen = new Set(), selected = priorities.filter(o => {if (seen.has(o.domain)) return false; seen.add(o.domain); return true;}).slice(0,8);
@@ -189,7 +197,7 @@ export async function productLookup(request, env, fetcher = fetch) {
   const barcode = productBarcode(new URL(request.url).searchParams.get('barcode'));
   if (!env.DB) fail('Product lookup is unavailable.', 503);
   const now = Date.now();
-  const cached = await env.DB.prepare('SELECT data FROM product_cache WHERE barcode = ? AND expires_at > ?').bind('verified-v3:' + gtinKey(barcode), now).first();
+  const cached = await env.DB.prepare('SELECT data FROM product_cache WHERE barcode = ? AND expires_at > ?').bind('verified-v4:' + gtinKey(barcode), now).first();
   if (cached) {
     const data = JSON.parse(cached.data);
     data.offers = verifiedListings(data.offers, now);
@@ -204,7 +212,7 @@ export async function productLookup(request, env, fetcher = fetch) {
   if (!await quota(env.DB, 'day:' + day, 90, (day+1)*86400000)) fail('Product lookup limit reached. Try later or search the stores below.', 429);
   const result = await findProduct(barcode, fetcher, now);
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO product_cache (barcode, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(barcode) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at').bind('verified-v3:' + gtinKey(barcode), JSON.stringify(result), now + 300000),
+    env.DB.prepare('INSERT INTO product_cache (barcode, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(barcode) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at').bind('verified-v4:' + gtinKey(barcode), JSON.stringify(result), now + 300000),
     env.DB.prepare('DELETE FROM product_cache WHERE expires_at < ?').bind(now - 86400000),
     env.DB.prepare('DELETE FROM lookup_limits WHERE expires_at < ?').bind(now)
   ]);
