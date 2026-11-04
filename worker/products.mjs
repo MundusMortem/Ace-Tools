@@ -128,7 +128,7 @@ async function publicRetailerPage(initial, fetcher) {
       current = directRetailerURL(redirected) || redirected; if (!current) return null;
       continue;
     }
-    if (!response.ok || !RETAIL_HOSTS.has(url.hostname)) { await response.body?.cancel(); return null; }
+    if (!response.ok || !RETAIL_HOSTS.has(url.hostname)) { console.warn('Retailer verification fetch failed', url.hostname, response.status); await response.body?.cancel(); return null; }
     if (!response.headers.get('Content-Type')?.includes('text/html')) { await response.body?.cancel(); return null; }
     const reader = response.body?.getReader(); if (!reader) return null;
     const decoder = new TextDecoder(); let html = '', bytes = 0;
@@ -144,13 +144,13 @@ async function enrichRetailer(offer, barcode, now, fetcher) {
     const domain = new URL(page.url).hostname.replace(/^www\./, '');
     if (domain !== offer.domain) return null;
     const product = retailerProduct(page.html, barcode);
-    if (!product) return null;
+    if (!product) { console.warn('Retailer verification has no matching GTIN', domain); return null; }
     const identifier = retailerItemNumber(page.url, product.sku);
     const model = clean(product.mpn || (typeof product.model === 'object' ? product.model.name : product.model), 100);
     const raw = currentRetailerOffer(product, now);
     const current = raw ? {...offer, ...raw, domain, url: page.url, shipping: 'Shipping unknown', updated_at: new Date(now).toISOString(), verified: true} : null;
     return {identifier, model, offer: current};
-  } catch { return null; }
+  } catch (error) { console.warn('Retailer verification failed', offer.domain, error.name); return null; }
 }
 function sourceItem(item, barcode, now) {
   return {barcode, title: clean(item.title, 300), brand: clean(item.brand, 100), model: clean(item.model, 100) || null, item_number: null, offers: catalogOffers(item, now), best: null, source_url: 'https://www.upcitemdb.com/upc/' + barcode, checked_at: new Date(now).toISOString(), links: productSearchLinks(barcode)};
