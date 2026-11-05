@@ -29,11 +29,15 @@ export function formatChange(value, format = 'number') {
   return prefix + (format === 'percent' ? formatValue(value) + ' pp' : formatValue(value, format));
 }
 export function discSegments(card) {
-  const current = Math.max(0, card.current);
-  const scale = Math.max(card.goal, current);
+  const ratio = Math.max(0, card.current) / card.goal;
   return {
-    blue: Math.min(current, card.goal) / scale,
-    red: Math.max(0, card.goal - current) / scale,
-    green: Math.max(0, current - card.goal) / scale,
+    blue: Math.min(1, ratio),
+    red: Math.max(0, 1 - ratio),
+    green: Math.max(0, Math.min(1, ratio - 1)),
   };
+}
+export function targetDistance(card) {
+  const amount = Math.abs(card.goal - card.current);
+  const value = card.format === 'percent' ? formatValue(amount) + ' pp' : formatValue(amount, card.format);
+  return {amount, value, label: card.current > card.goal ? 'over target' : 'remaining', reached: card.current >= card.goal};
 }

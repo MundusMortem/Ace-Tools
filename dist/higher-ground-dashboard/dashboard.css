@@ -8,3 +8,5 @@
 .disc-extra{stroke:#52e69b;stroke-width:9;stroke-linecap:butt;filter:drop-shadow(0 0 7px #38dc8dbf)}
 .disc-label{padding:18%;width:100%}.disc-label strong{font-size:32px;color:#8bc5ff;font-variant-numeric:tabular-nums}.disc-label strong.small{font-size:24px;letter-spacing:-1px}
 .disc-label .disc-target{display:block;color:#aea3b6;font-size:11px;margin-top:7px;letter-spacing:0}.disc-label span{color:#ff7d91;font-size:9px;letter-spacing:1.1px;margin-top:10px}.reached .disc-label span{color:#65e6a4}
+
+.goal-distance{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:7px;margin:0 0 21px;color:#ff7d91;text-align:center}.goal-distance strong{font-size:23px;font-weight:550;letter-spacing:-.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.goal-distance span{font-size:11px;color:#b1a3b9}.goal-distance.reached{color:#65e6a4}

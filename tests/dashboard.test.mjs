@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../worker/index.js';
-import {progress, orderedCards, formatValue, formatChange, discSegments} from '../dist/higher-ground-dashboard/model.mjs';
+import {progress, orderedCards, formatValue, formatChange, discSegments, targetDistance} from '../dist/higher-ground-dashboard/model.mjs';
 
 function fixture() {
   const sql = new DatabaseSync(':memory:');
@@ -152,10 +152,29 @@ test('percentage, dollar and absolute formats show values and changes consistent
 test('disc segments show blue current progress, red shortfall and green excess', () => {
   assert.deepEqual(discSegments({current: 25, goal: 100}), {blue: .25, red: .75, green: 0});
   assert.deepEqual(discSegments({current: 100, goal: 100}), {blue: 1, red: 0, green: 0});
-  assert.deepEqual(discSegments({current: 200, goal: 100}), {blue: .5, red: 0, green: .5});
+  assert.deepEqual(discSegments({current: 200, goal: 100}), {blue: 1, red: 0, green: 1});
   assert.deepEqual(discSegments({current: -25, goal: 100}), {blue: 0, red: 1, green: 0});
   for (const current of [0, 40, 100, 120, 300]) {
     const s = discSegments({current, goal: 100});
-    assert.ok(Math.abs(s.blue + s.red + s.green - 1) < 1e-10);
+    assert.ok(Math.abs(s.blue + s.red - 1) < 1e-10);
   }
+});
+
+test('excess is measured after a complete blue lap rather than shrinking the blue goal arc', () => {
+  const at = discSegments({goal: 100, current: 100});
+  const above = discSegments({goal: 100, current: 125});
+  const doubled = discSegments({goal: 100, current: 200});
+  assert.deepEqual(at, {blue: 1, red: 0, green: 0});
+  assert.deepEqual(above, {blue: 1, red: 0, green: .25});
+  assert.deepEqual(doubled, {blue: 1, red: 0, green: 1});
+  assert.deepEqual(discSegments({goal: 100, current: 350}), {blue: 1, red: 0, green: 1});
+});
+test('distance to target reports remaining and excess values in the selected units', () => {
+  assert.deepEqual(targetDistance({goal: 100, current: 75, format: 'number'}), {amount: 25, value: '25', label: 'remaining', reached: false});
+  assert.deepEqual(targetDistance({goal: 1000, current: 1250.5, format: 'dollars'}), {amount: 250.5, value: '$250.50', label: 'over target', reached: true});
+  assert.deepEqual(targetDistance({goal: 25, current: 20, format: 'percent'}), {amount: 5, value: '5 pp', label: 'remaining', reached: false});
+  assert.deepEqual(targetDistance({goal: 25, current: 30, format: 'percent'}), {amount: 5, value: '5 pp', label: 'over target', reached: true});
+  assert.equal(targetDistance({goal: 100, current: 100, format: 'dollars'}).value, '$0.00');
+  assert.equal(targetDistance({goal: 100, current: -25}).amount, 125);
+  assert.equal(targetDistance({goal: 100, current: 350}).value, '250');
 });

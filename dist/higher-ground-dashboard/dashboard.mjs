@@ -1,4 +1,4 @@
-import {progress, orderedCards, formatValue, formatChange, discSegments} from './model.mjs';
+import {progress, orderedCards, formatValue, formatChange, discSegments, targetDistance} from './model.mjs?v=3';
 const API = 'https://ace-tools.bonnylight3.chatgpt.site';
 const $ = id => document.getElementById(id);
 const num = value => new Intl.NumberFormat(undefined, {maximumFractionDigits: 2}).format(value);
@@ -104,7 +104,7 @@ function ring(p, card) {
   circle(100, 'disc-ticks'); circle(85, 'disc-track'); circle(73, 'disc-inner');
   circle(85, 'disc-gap', segments.red, segments.blue);
   circle(85, 'disc-progress', segments.blue);
-  circle(85, 'disc-extra', segments.green, segments.blue);
+  circle(85, 'disc-extra', segments.green);
   disc.append(svg);
   const label = element('div', 'disc-label');
   const current = formatValue(card.current, card.format, true);
@@ -141,13 +141,16 @@ function render() {
     for (const [name, value] of [['Current', card.current], ['Goal', card.goal]]) {
       const block = element('div'); block.append(element('dt', '', name), element('dd', '', formatValue(value, card.format))); values.append(block);
     }
+    const distance = targetDistance(card);
+    const distanceLabel = element('p', 'goal-distance' + (distance.reached ? ' reached' : ''));
+    distanceLabel.append(element('strong', '', distance.value), element('span', '', distance.label));
     const bottom = element('div', 'card-bottom');
     const delta = element('div', 'delta' + (p.delta > 0 ? ' positive' : p.delta < 0 ? ' negative' : ''), p.delta == null ? '—' : `${p.delta > 0 ? '↗ ' : p.delta < 0 ? '↘ ' : ''}${formatChange(p.delta, card.format)}`);
     delta.append(element('span', 'previous', card.previous == null ? 'No previous number' : 'Previous ' + formatValue(card.previous, card.format)));
     const history = element('button', 'history-button', 'History'); history.type = 'button'; history.dataset.action = 'history';
     history.setAttribute('aria-label', 'History for ' + card.metric); history.addEventListener('click', () => openHistory(card));
     bottom.append(delta, history);
-    article.append(top, ring(p, card), values, bottom); $('cards').append(article);
+    article.append(top, ring(p, card), distanceLabel, values, bottom); $('cards').append(article);
   }
   if (focusedCard && focusedAction) {
     const target = [...$('cards').children].find(card => card.dataset.id === focusedCard)?.querySelector(`[data-action="${focusedAction}"]`);
