@@ -28,20 +28,16 @@ Frames/photos are decoded locally; only barcode digits go to the Worker lookup A
 
 UPCitemdb identifies matching items and supplied model numbers. The backend checks
 matching retailer GTIN structured data for Ace/True Value item numbers, preferring
-Ace, and verifies live product prices when retailer pages permit it. Ace barcode
-search is attempted directly before catalog tracking links. If a matching catalog
-link resolves to an Ace item number but the product page is blocked, that number
-is displayed as a catalog match; no price is verified from the catalog link. Unconfirmed retailer item numbers are marked not verified; absence is not a claim
-that the retailer does not sell the item. Only the three lowest distinct merchants with verified, available, new USD item prices
-are shown. Every displayed price comes from a fresh, matching retailer product page;
-prices expire after five minutes. Unverified catalog prices, stale prices, used items,
-member-only offers, out-of-stock items, and other currencies are excluded. Ace nested
-UnitPriceSpecification values are supported. Tracking wrappers are unwrapped to approved
-HTTPS retailer URLs without fetching the tracker. Check times and direct merchant links
-remain visible. Item prices
-exclude tax/shipping and local store pricing can differ. No claim of an exhaustive
-market search is made. Unknown items and provider failures retain direct store and
-shopping search links.
+Ace. Ace barcode search is attempted directly before catalog tracking links, including
+when the catalog has no matching item. After those attempts miss, up to two Ace
+search-result product links are checked concurrently within a shared 2.5-second
+budget; exact GTIN verification is still required. If a matching catalog link resolves
+to an Ace item number but the product page is blocked, that number is displayed as
+a catalog match. Unconfirmed retailer item numbers are marked not verified; absence
+is not a claim that the retailer does not sell the item. True Value is checked only
+when Ace returns no item number, within a two-second budget. No retailer price
+lookup or comparison is performed. Item lookups are cached for five minutes.
+Unknown items and provider failures retain direct store search links.
 
 UPCitemdb's signup-free trial allows 100 combined requests/day. The app caches
 lookups for five minutes and reserves at most 90 uncached requests/day, with a per-IP
