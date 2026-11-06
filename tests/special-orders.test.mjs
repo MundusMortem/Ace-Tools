@@ -23,6 +23,7 @@ function service() {
     getKeys: () => [...values.keys()]
   };
   const context = {
+    Utilities: {getUuid: randomUUID},
     PropertiesService: {getScriptProperties: () => properties},
     LockService: {getScriptLock: () => ({tryLock: () => true, releaseLock() {}})},
     ContentService: {MimeType: {JSON: 'json'}, createTextOutput: body => ({setMimeType: () => JSON.parse(body)})},
@@ -96,4 +97,13 @@ test('the GET readiness check is read-only and requires configured recipients', 
   values.delete('SPECIAL_ORDER_RECIPIENTS');
   assert.deepEqual(context.doGet({parameter: {action: 'status'}}), {protocol, result: 'error'});
   assert.equal(mail.length, 0);
+});
+
+test('the original standalone form can still submit valid orders to the same URL', () => {
+  const {context, mail} = service();
+  const legacy = {orderType: 'STOCK', yourName: 'Employee', skuModel: '0123456', autoFilled: 'Legacy note'};
+  assert.equal(context.doPost({parameter: {...legacy, yourName: ' '}}).result, 'error');
+  assert.equal(context.doPost({parameter: legacy}).result, 'success');
+  assert.equal(mail.length, 1);
+  assert.match(mail[0].body, /Order for STOCK\. Check QOH\.$/);
 });

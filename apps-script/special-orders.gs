@@ -14,7 +14,13 @@ function doGet(e) {
 
 function doPost(e) {
   const data = e.parameter;
-  if (data.protocol !== ORDER_PROTOCOL) return orderResponse(orderError('Unsupported order form.'));
+  if (data.protocol === undefined && data.action === undefined && data.requestId === undefined) {
+    // The standalone order form predates client-generated references.
+    data.action = 'submitOrder';
+    data.requestId = Date.now() + '-' + Utilities.getUuid();
+  } else if (data.protocol !== ORDER_PROTOCOL) {
+    return orderResponse(orderError('Unsupported order form.'));
+  }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return orderResponse({result: 'retry', message: 'The order service is busy. Try again.'});
   try {

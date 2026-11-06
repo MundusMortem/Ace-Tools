@@ -72,8 +72,8 @@ version to keep its URL. The web app must execute as the store account with
 MailApp permission and be accessible to the public form. If using a separate
 deployment, update the frontend endpoint. The tab checks the backend protocol
 before posting so the original handler cannot receive admin requests. The
-original standalone HTML uses the old protocol and needs its own legacy deployment
-if it is still in use.
+original standalone HTML can still submit valid orders at the same URL. Retry
+protection uses an order reference supplied by the Ace Tools tab.
 
 Sign in to **Admin** as `admin` to change recipients. Changes apply to all users and
 persist in Script Properties. Keep the PIN and recipient settings out of Git.
