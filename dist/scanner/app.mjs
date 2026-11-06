@@ -15,7 +15,7 @@ dialog.innerHTML = `<div class="scan-heading"><div class="scan-title-icon">${ico
 document.body.append(dialog);
 const find = selector => dialog.querySelector(selector);
 const video = find('video'), camera = find('.scan-camera'), status = find('.scan-status'), results = find('.scan-results'), searches = find('.scan-searches'), form = find('form'), input = find('#scanner-code');
-let operation = 0, controller = null, priceExpiry = null;
+let operation = 0, controller = null, priceExpiry = null, selectAceSku = null;
 const scanner = new CameraScanner(video, code => lookup(code));
 function node(tag, className, text) { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined) n.textContent = text; return n; }
 function link(label, url, className = '') {
@@ -47,7 +47,14 @@ function resultView(data, now = Date.parse(data.server_time) || Date.now()) {
   const value = node('dd'); value.append(data.item_number ? link(data.item_number.number + ' ↗', data.item_number.url) : document.createTextNode('Not verified')); identifier.append(value);
   if (data.item_number?.verified === false) identifier.append(node('span', 'scan-offer-meta', 'Catalog match'));
   details.append(identifier);
-  product.append(details); results.append(product);
+  product.append(details);
+  if (selectAceSku && data.item_number?.merchant === 'Ace Hardware') {
+    const use = node('button', 'scan-control scan-primary', 'Use Ace SKU ' + data.item_number.number);
+    use.type = 'button';
+    use.addEventListener('click', () => useAceSku(data.item_number));
+    product.append(use);
+  }
+  results.append(product);
   const listings = verifiedListings(data.offers, now);
   if (listings.length) {
     results.append(node('h4', 'scan-offers-heading', 'Verified current prices'));
@@ -82,7 +89,13 @@ async function lookup(value) {
     try { data = await response.json(); } catch { throw Error('Product lookup is unavailable. Try again.'); }
     if (!response.ok) throw Error(data.error || 'Product lookup is unavailable. Try again.');
     if (current !== operation) return;
-    setStatus(); resultView(data);
+    const item = data.item_number;
+    if (selectAceSku && item?.merchant === 'Ace Hardware' && item.verified !== false) {
+      useAceSku(item);
+      return;
+    }
+    setStatus(selectAceSku && item?.merchant !== 'Ace Hardware' ? 'No Ace SKU found. Enter the Ace SKU manually.' : '');
+    resultView(data);
   } catch (error) {
     if (current === operation && error.name !== 'AbortError') setStatus(error.message === 'Failed to fetch' ? 'Cannot connect. Try again or search the stores below.' : error.message, true);
   } finally { if (current === operation) submit.disabled = false; }
@@ -95,7 +108,18 @@ async function startCamera() {
   try { await scanner.start(); if (current === operation && dialog.open && scanner.stream) setStatus('Point the camera at a barcode.'); }
   catch (error) { if (current === operation) { stopCamera(); setStatus(error.message, true); } }
 }
-trigger.addEventListener('click', () => { if (!dialog.open) { dialog.showModal(); startCamera(); } });
+function useAceSku(item) {
+  const select = selectAceSku;
+  dialog.close();
+  select(item.number);
+}
+export function openScanner(onAceSku = null) {
+  if (dialog.open) return;
+  selectAceSku = onAceSku;
+  dialog.showModal();
+  startCamera();
+}
+trigger.addEventListener('click', () => openScanner());
 find('.scan-close').addEventListener('click', () => dialog.close());
 find('.scan-start').addEventListener('click', startCamera);
 form.addEventListener('submit', event => { event.preventDefault(); lookup(input.value); });

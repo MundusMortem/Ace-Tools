@@ -49,6 +49,35 @@ burst limit. Quota/provider errors are explicit; no paid subscription is created
 Retailer fetches are restricted to approved public hosts, refuse unsafe redirects,
 have bounded response sizes, and require exact barcode matches before trusting data.
 
+## Special Orders
+
+The Special Orders tab uses the shared barcode scanner. Verified Ace item numbers
+fill the SKU field directly. An Ace catalog match can be selected in the scanner.
+Stock orders include the QOH reminder. Customer orders require a positive whole
+quantity, notes, and customer name and contact info. The form confirms a send and
+requires an explicit action to start another order. Retries reuse the order
+reference. The backend retains delivery markers for 48 hours and blocks resends
+when delivery is uncertain.
+
+The Google Apps Script backend lives in `apps-script/special-orders.gs`. To activate
+the tab, update the Apps Script project behind the `endpoint` in
+`dist/special-orders/orders.mjs` with that file. In **Project Settings → Script
+properties**, set:
+
+- `SPECIAL_ORDER_RECIPIENTS` to the current Shorewood Ace order inbox for the first deployment.
+- `SPECIAL_ORDER_ADMIN_PASSWORD` to the store's chosen admin PIN.
+
+In **Deploy → Manage deployments**, edit the existing web app and select a new
+version to keep its URL. The web app must execute as the store account with
+MailApp permission and be accessible to the public form. If using a separate
+deployment, update the frontend endpoint. The tab checks the backend protocol
+before posting so the original handler cannot receive admin requests. The
+original standalone HTML can still submit valid orders at the same URL. Retry
+protection uses an order reference supplied by the Ace Tools tab.
+
+Sign in to **Admin** as `admin` to change recipients. Changes apply to all users and
+persist in Script Properties. Keep the PIN and recipient settings out of Git.
+
 ## Source
 
 - `dist/`: static frontend published to GitHub Pages.
@@ -69,6 +98,7 @@ python3 scripts/check.py
 node tests/dashboard.test.mjs
 node tests/products.test.mjs
 node tests/camera.test.mjs
+node tests/special-orders.test.mjs
 python3 scripts/build-worker.py
 ```
 
