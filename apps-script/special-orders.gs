@@ -5,10 +5,18 @@ const ORDER_LIMIT = 1500;
 const RECIPIENTS_KEY = 'SPECIAL_ORDER_RECIPIENTS';
 const PASSWORD_KEY = 'SPECIAL_ORDER_ADMIN_PASSWORD';
 const ATTEMPTS_KEY = 'specialOrder.adminAttempts';
+const SCREEN_PRICING_KEY = 'screenPricing.settings';
+const SCREEN_RATE_KEYS = ['fb', 'al', 'pet'].flatMap(material =>
+  [24, 30, 36, 48, 60, 72].map(width => material + width)).concat([
+  'glass', 'spline', 'wlsc', 'wlw', 'wlwd', 'ptfr', 'ptco', 'pttk', 'ptkl',
+  'ptpp', 'ptts', 'ptcc', 'ptpt', 'ptsb', 'ptsdwh', 'ptsc'
+]);
 
 function doGet(e) {
+  const properties = PropertiesService.getScriptProperties();
+  if (e.parameter.action === 'screenPricing') return orderResponse(screenPricingResponse(properties));
   if (e.parameter.action !== 'status') return orderResponse({result: 'error'});
-  const ready = readRecipients(PropertiesService.getScriptProperties()).length > 0;
+  const ready = readRecipients(properties).length > 0;
   return orderResponse({result: ready ? 'success' : 'error'});
 }
 
@@ -29,6 +37,9 @@ function doPost(e) {
       case 'submitOrder': return orderResponse(sendOrder(data, properties));
       case 'getRecipients':
       case 'saveRecipients': return orderResponse(editRecipients(data, properties));
+      case 'screenPricingLogin':
+      case 'saveScreenPricing':
+        return orderResponse({screenPricing: true, ...editScreenPricing(data, properties)});
       default: return orderResponse(orderError('Unsupported action.'));
     }
   } catch (_) {
@@ -59,9 +70,9 @@ function parseRecipients(value) {
   return addresses;
 }
 
-function editRecipients(data, properties) {
+function authorizeAdmin(data, properties, unavailableMessage) {
   const password = properties.getProperty(PASSWORD_KEY);
-  if (!password) return orderError('Recipient editing is unavailable.');
+  if (!password) return orderError(unavailableMessage);
   const now = Date.now();
   const previous = JSON.parse(properties.getProperty(ATTEMPTS_KEY) || 'null');
   const attempts = previous?.until > now ? previous : {count: 0, until: now + 5 * 60 * 1000};
@@ -73,12 +84,53 @@ function editRecipients(data, properties) {
     return orderError('Incorrect username or password.');
   }
   if (previous) properties.deleteProperty(ATTEMPTS_KEY);
+  return null;
+}
+
+function editRecipients(data, properties) {
+  const error = authorizeAdmin(data, properties, 'Recipient editing is unavailable.');
+  if (error) return error;
   if (data.action === 'getRecipients') return {result: 'success', recipients: readRecipients(properties)};
 
   const recipients = parseRecipients(data.recipients || '');
   if (!recipients) return orderError('Enter between 1 and 20 valid email addresses, one per line.');
   properties.setProperty(RECIPIENTS_KEY, recipients.join(','));
   return {result: 'success', recipients};
+}
+
+function readScreenPricing(properties) {
+  return JSON.parse(properties.getProperty(SCREEN_PRICING_KEY) || 'null');
+}
+
+function screenPricingResponse(properties) {
+  return {screenPricing: true, result: 'success', settings: readScreenPricing(properties)};
+}
+
+function editScreenPricing(data, properties) {
+  const error = authorizeAdmin(data, properties, 'Screen price editing is unavailable.');
+  if (error) return error;
+  if (data.action === 'screenPricingLogin') return screenPricingResponse(properties);
+
+  let next;
+  try {
+    next = JSON.parse(data.settings);
+  } catch (_) {
+    return orderError('Enter valid rates and a price adjustment between −100% and +100%.');
+  }
+  const rates = next?.rates;
+  if (!Number.isSafeInteger(next?.revision) || next.revision < 0 ||
+      !Number.isFinite(next.adjustment) || Math.abs(next.adjustment) > 100 ||
+      !rates || Object.keys(rates).length !== SCREEN_RATE_KEYS.length ||
+      SCREEN_RATE_KEYS.some(key => !Number.isFinite(rates[key]) || rates[key] < 0 || rates[key] > 1000000)) {
+    return orderError('Enter valid rates and a price adjustment between −100% and +100%.');
+  }
+  const revision = readScreenPricing(properties)?.revision ?? 0;
+  if (revision !== next.revision) {
+    return {result: 'conflict', message: 'Prices changed since you opened the editor. Reload saved prices before editing.'};
+  }
+  const settings = {revision: revision + 1, adjustment: next.adjustment, rates};
+  properties.setProperty(SCREEN_PRICING_KEY, JSON.stringify(settings));
+  return {result: 'success', settings};
 }
 
 function sendOrder(data, properties) {

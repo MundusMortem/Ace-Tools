@@ -1,0 +1,26 @@
+.pricing-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.pricing-page .order-panel { width: 100%; }
+.pricing-page h2, #pricing-admin h2 { margin: 0 0 12px; font-size: 1.25rem; }
+.price-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.price-fields[hidden], #pricing-admin [hidden] { display: none; }
+.price-fields input, .price-fields select { display: block; margin-top: 6px; }
+.price-addons { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }
+#estimate h3 { margin: 22px 0 0; }
+.price-summary { position: sticky; top: 16px; }
+.price-summary dl { margin: 10px 0; }
+.price-summary dl div { display: flex; gap: 12px; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ffffff14; }
+.price-summary dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-summary .quote-final { font-size: 1.15rem; font-weight: 700; color: #ff8798; }
+.price-summary summary, #price-list summary { cursor: pointer; font-weight: 650; }
+#quote-details { margin-top: 20px; }
+#pricing-admin { width: min(100% - 32px, 680px); max-height: calc(100% - 32px); }
+#pricing-admin::backdrop { background: #09080cd9; }
+.price-adjuster { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+#price-list details { border-top: 1px solid #ffffff20; margin-top: 16px; padding-top: 12px; }
+@media (max-width: 780px) {
+  .pricing-layout { grid-template-columns: minmax(0, 1fr); }
+  .price-summary { position: static; }
+}
+@media (max-width: 440px) {
+  #screen-options, #pricing-login { grid-template-columns: minmax(0, 1fr); }
+}

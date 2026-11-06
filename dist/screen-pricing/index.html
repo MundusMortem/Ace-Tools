@@ -8,11 +8,76 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../scanner/style.css?v=2">
+<link rel="stylesheet" href="../special-orders/orders.css">
+<link rel="stylesheet" href="./pricing.css">
 <script type="module" src="../scanner/app.mjs?v=2"></script>
+<script type="module" src="./pricing.mjs"></script>
 </head>
 <body>
 <div class="ambient" aria-hidden="true"></div>
 <header><a class="brand" href="../"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M20 5 35 33H5L20 5Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M13 26h14M20 18v8" stroke="currentColor" stroke-width="3"/></svg><span>Ace Tools</span></a></header>
-<main><section class="tool-page"><div class="emblem"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8m-4-4v4m-4-9 3-3 3 2 3-4"/></svg></div><h1>Screen Pricing</h1><p>Under construction.</p><a class="back" href="../"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>Ace Tools</span></a></section></main>
+<main><section class="tool-page orders-page pricing-page"><div class="emblem"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8m-4-4v4m-4-9 3-3 3 2 3-4"/></svg></div><h1>Screen Pricing</h1><p>For informational purposes only. Prices may vary.</p>
+<div class="pricing-layout">
+  <form id="estimate" class="order-panel" autocomplete="off">
+    <h2>Screen Repair Price Estimator</h2>
+    <div class="price-fields">
+      <label>Item type<select id="item-type"><option value="screen">Screen</option><option value="glass">Glass</option></select></label>
+    </div>
+    <div id="screen-options" class="price-fields">
+      <label>Screen material<select id="screen-material"><option value="fiberglass">Fiberglass</option><option value="aluminum">Aluminum</option><option value="pet">Pet Screen</option></select></label>
+      <label>Frame material<select id="frame-material"><option value="aluminum">Aluminum</option><option value="wood">Wood</option></select></label>
+    </div>
+    <div class="price-fields">
+      <label>Width (inches)<input type="number" id="width" min="1" max="72" step="any" inputmode="decimal"></label>
+      <label>Length (inches)<input type="number" id="length" min="1" max="120" step="any" inputmode="decimal"></label>
+    </div>
+    <h3>Add-ons</h3>
+    <div id="addons" class="price-fields price-addons"></div>
+    <div class="order-actions">
+      <button type="button" class="order-button" id="swap-dimensions">Swap dimensions</button>
+      <button type="reset" class="order-button">Clear estimate</button>
+      <button type="button" class="order-button" id="open-admin" disabled>Admin</button>
+    </div>
+  </form>
+  <section class="order-panel price-summary" aria-labelledby="estimate-heading">
+    <h2 id="estimate-heading">Estimate</h2>
+    <p id="quote-status" class="order-status" role="status">Loading prices…</p>
+    <button type="button" id="retry-prices" class="order-button" hidden>Retry prices</button>
+    <div id="quote" hidden>
+      <dl id="quote-totals" aria-live="polite"></dl>
+      <details id="quote-details" open>
+        <summary>Detailed cost breakdown</summary>
+        <dl id="quote-breakdown"></dl>
+      </details>
+    </div>
+  </section>
+</div>
+<dialog id="pricing-admin" class="order-panel" aria-labelledby="pricing-admin-heading">
+  <h2 id="pricing-admin-heading">Screen Pricing Admin</h2>
+  <form id="pricing-settings">
+    <fieldset id="settings-fields">
+      <div id="pricing-login" class="price-fields">
+        <label>Username<input name="username" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      </div>
+      <fieldset id="pricing-edit" hidden disabled>
+        <label for="price-adjustment">Price adjustment (%)</label>
+        <div class="price-adjuster">
+          <button class="order-button" id="decrease" type="button" aria-label="Decrease adjustment by five percentage points">−5%</button>
+          <input id="price-adjustment" name="adjustment" type="number" min="-100" max="100" step="any" required>
+          <button class="order-button" id="increase" type="button" aria-label="Increase adjustment by five percentage points">+5%</button>
+        </div>
+        <div id="price-list"></div>
+      </fieldset>
+    </fieldset>
+    <div class="order-actions">
+      <button id="save-pricing" type="submit" class="order-button order-primary">Sign in</button>
+      <button id="reload-pricing" type="button" class="order-button" hidden>Reload saved prices</button>
+      <button id="close-admin" type="button" class="order-button">Close</button>
+    </div>
+    <p id="pricing-admin-status" class="order-status" role="status"></p>
+  </form>
+</dialog>
+<a class="back" href="../"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>Ace Tools</span></a></section></main>
 </body>
 </html>
