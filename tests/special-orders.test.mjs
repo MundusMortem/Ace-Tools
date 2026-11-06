@@ -14,7 +14,8 @@ function service() {
   const mail = [];
   const values = new Map([
     ['SPECIAL_ORDER_ADMIN_PASSWORD', admin.password],
-    ['SPECIAL_ORDER_RECIPIENTS', 'orders@example.com']
+    ['SPECIAL_ORDER_RECIPIENTS', 'orders@example.com'],
+    ['SPECIAL_ORDER_SENDER', 'sender@example.com']
   ]);
   const properties = {
     getProperty: key => values.get(key),
@@ -23,6 +24,7 @@ function service() {
     getKeys: () => [...values.keys()]
   };
   const context = {
+    Session: {getEffectiveUser: () => ({getEmail: () => 'Sender@example.com'})},
     Utilities: {getUuid: randomUUID},
     PropertiesService: {getScriptProperties: () => properties},
     LockService: {getScriptLock: () => ({tryLock: () => true, releaseLock() {}})},
@@ -93,9 +95,9 @@ test('repeated bad admin credentials are throttled without blocking orders', () 
 
 test('the GET readiness check is read-only and requires configured recipients', () => {
   const {values, context, mail} = service();
-  assert.deepEqual(context.doGet({parameter: {action: 'status'}}), {protocol, result: 'success'});
+  assert.deepEqual(context.doGet({parameter: {action: 'status'}}), {protocol, result: 'success', senderVerified: true});
   values.delete('SPECIAL_ORDER_RECIPIENTS');
-  assert.deepEqual(context.doGet({parameter: {action: 'status'}}), {protocol, result: 'error'});
+  assert.deepEqual(context.doGet({parameter: {action: 'status'}}), {protocol, result: 'error', senderVerified: true});
   assert.equal(mail.length, 0);
 });
 
@@ -106,4 +108,16 @@ test('the original standalone form can still submit valid orders to the same URL
   assert.equal(context.doPost({parameter: legacy}).result, 'success');
   assert.equal(mail.length, 1);
   assert.match(mail[0].body, /Order for STOCK\. Check QOH\.$/);
+});
+
+test('the backend blocks delivery when the deployment runs as a different or unknown account', () => {
+  const {context, post, mail, values} = service();
+  for (const email of ['other@example.com', '']) {
+    context.Session.getEffectiveUser = () => ({getEmail: () => email});
+    assert.equal(context.doGet({parameter: {action: 'status'}}).senderVerified, false);
+    assert.equal(post('submitOrder', order()).result, 'error');
+  }
+  values.delete('SPECIAL_ORDER_SENDER');
+  assert.equal(post('submitOrder', order()).result, 'error');
+  assert.equal(mail.length, 0);
 });

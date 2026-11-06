@@ -3,13 +3,16 @@ const ORDER_PREFIX = 'specialOrder.request.';
 const ORDER_WINDOW = 48 * 60 * 60 * 1000;
 const ORDER_LIMIT = 1500;
 const RECIPIENTS_KEY = 'SPECIAL_ORDER_RECIPIENTS';
+const SENDER_KEY = 'SPECIAL_ORDER_SENDER';
 const PASSWORD_KEY = 'SPECIAL_ORDER_ADMIN_PASSWORD';
 const ATTEMPTS_KEY = 'specialOrder.adminAttempts';
 
 function doGet(e) {
   if (e.parameter.action !== 'status') return orderResponse({result: 'error'});
-  const ready = readRecipients(PropertiesService.getScriptProperties()).length > 0;
-  return orderResponse({result: ready ? 'success' : 'error'});
+  const properties = PropertiesService.getScriptProperties();
+  const senderVerified = orderSenderVerified(properties);
+  const ready = senderVerified && readRecipients(properties).length > 0;
+  return orderResponse({result: ready ? 'success' : 'error', senderVerified});
 }
 
 function doPost(e) {
@@ -45,6 +48,11 @@ function orderResponse(value) {
 
 function orderError(message) {
   return {result: 'error', message};
+}
+
+function orderSenderVerified(properties) {
+  const expected = (properties.getProperty(SENDER_KEY) || '').trim().toLowerCase();
+  return Boolean(expected && Session.getEffectiveUser().getEmail().toLowerCase() === expected);
 }
 
 function readRecipients(properties) {
@@ -111,6 +119,7 @@ function sendOrder(data, properties) {
     return orderError('Enter a whole-number quantity, description or notes, and customer name and contact info.');
   }
 
+  if (!orderSenderVerified(properties)) return orderError('The order email sender could not be verified.');
   const recipients = readRecipients(properties);
   if (!recipients.length) return orderError('Order recipients have not been configured.');
   if (MailApp.getRemainingDailyQuota() < recipients.length) {

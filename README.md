@@ -64,16 +64,16 @@ the tab, update the Apps Script project behind the `endpoint` in
 `dist/special-orders/orders.mjs` with that file. In **Project Settings → Script
 properties**, set:
 
+- `SPECIAL_ORDER_SENDER` to the email address of the account that must send orders.
 - `SPECIAL_ORDER_RECIPIENTS` to the current Shorewood Ace order inbox for the first deployment.
 - `SPECIAL_ORDER_ADMIN_PASSWORD` to the store's chosen admin PIN.
 
-In **Deploy → Manage deployments**, edit the existing web app and select a new
-version to keep its URL. The web app must execute as the store account with
-MailApp permission and be accessible to the public form. If using a separate
-deployment, update the frontend endpoint. The tab checks the backend protocol
-before posting so the original handler cannot receive admin requests. The
-original standalone HTML can still submit valid orders at the same URL. Retry
-protection uses an order reference supplied by the Ace Tools tab.
+Use **Deploy → New deployment** while signed in as the account that must send
+orders if the existing deployment belongs to a different account. Set the web
+app to run as that account and keep it accessible to the public form. Update the
+frontend endpoint with its web app URL. The tab checks the backend protocol and
+its verified sender before posting. The backend also checks the effective Google
+account before sending email. Retry protection uses the Ace Tools order reference.
 
 Sign in to **Admin** as `admin` to change recipients. Changes apply to all users and
 persist in Script Properties. Keep the PIN and recipient settings out of Git.

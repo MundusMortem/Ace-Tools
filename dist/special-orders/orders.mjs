@@ -24,7 +24,7 @@ async function post(action, fields) {
   const ready = await fetch(endpoint + '?action=status', options())
     .then(response => response.ok && response.json())
     .catch(() => null);
-  if (ready?.protocol !== protocol || ready.result !== 'success') {
+  if (ready?.protocol !== protocol || ready.result !== 'success' || ready.senderVerified !== true) {
     return {result: 'offline', message: 'Special Orders is unavailable. Try again later.'};
   }
 
