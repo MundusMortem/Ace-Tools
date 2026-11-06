@@ -1,4 +1,4 @@
-import {openScanner} from '../scanner/app.mjs?v=2';
+import {openScanner} from '../scanner/app.mjs?v=3';
 
 const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';
@@ -8,8 +8,10 @@ const fields = byId('order-fields');
 const orderType = byId('order-type');
 const customerFields = byId('customer-fields');
 const sku = byId('order-sku');
+const description = byId('order-description');
 const send = byId('send-order');
 const startAnother = byId('new-order');
+let scannedTitle = '';
 let pendingOrder;
 let sending = false;
 
@@ -47,8 +49,12 @@ updateOrderType();
 send.disabled = false;
 
 byId('order-scan').addEventListener('click', () => {
-  openScanner(number => {
+  openScanner((number, title) => {
     sku.value = number;
+    if (!description.value.trim() || description.value === scannedTitle) {
+      scannedTitle = title?.trim() ?? '';
+      description.value = scannedTitle;
+    }
     sku.focus();
     notice('order-scan-status', 'Ace SKU ' + number + ' loaded.', 'success');
   });
@@ -78,6 +84,7 @@ form.addEventListener('submit', async event => {
     const result = await post('submitOrder', pendingOrder);
     if (result.result === 'success') {
       form.reset();
+      scannedTitle = '';
       updateOrderType();
       pendingOrder = undefined;
       send.hidden = true;

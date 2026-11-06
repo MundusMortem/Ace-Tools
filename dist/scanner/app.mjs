@@ -51,7 +51,7 @@ function resultView(data, now = Date.parse(data.server_time) || Date.now()) {
   if (selectAceSku && data.item_number?.merchant === 'Ace Hardware') {
     const use = node('button', 'scan-control scan-primary', 'Use Ace SKU ' + data.item_number.number);
     use.type = 'button';
-    use.addEventListener('click', () => useAceSku(data.item_number));
+    use.addEventListener('click', () => useAceSku(data.item_number, data.title));
     product.append(use);
   }
   results.append(product);
@@ -91,7 +91,7 @@ async function lookup(value) {
     if (current !== operation) return;
     const item = data.item_number;
     if (selectAceSku && item?.merchant === 'Ace Hardware' && item.verified !== false) {
-      useAceSku(item);
+      useAceSku(item, data.title);
       return;
     }
     setStatus(selectAceSku && item?.merchant !== 'Ace Hardware' ? 'No Ace SKU found. Enter the Ace SKU manually.' : '');
@@ -108,10 +108,10 @@ async function startCamera() {
   try { await scanner.start(); if (current === operation && dialog.open && scanner.stream) setStatus('Point the camera at a barcode.'); }
   catch (error) { if (current === operation) { stopCamera(); setStatus(error.message, true); } }
 }
-function useAceSku(item) {
+function useAceSku(item, title) {
   const select = selectAceSku;
   dialog.close();
-  select(item.number);
+  select(item.number, title);
 }
 export function openScanner(onAceSku = null) {
   if (dialog.open) return;
