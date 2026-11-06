@@ -29,7 +29,7 @@ Frames/photos are decoded locally; only barcode digits go to the Worker lookup A
 UPCitemdb identifies matching items and supplied model numbers. The backend checks
 matching retailer GTIN structured data for Ace/True Value item numbers, preferring
 Ace, and verifies live product prices when retailer pages permit it. Ace barcode
-search is attempted directly before catalog tracking links. If a matching catalog
+search is attempted directly before catalog tracking links, including when the catalog has no matching item. After those attempts miss, up to two Ace search-result product links are checked concurrently within a shared 2.5-second budget; exact GTIN verification is still required. If a matching catalog
 link resolves to an Ace item number but the product page is blocked, that number
 is displayed as a catalog match; no price is verified from the catalog link. Unconfirmed retailer item numbers are marked not verified; absence is not a claim
 that the retailer does not sell the item. Only the three lowest distinct merchants with verified, available, new USD item prices
@@ -52,7 +52,7 @@ have bounded response sizes, and require exact barcode matches before trusting d
 ## Special Orders
 
 The Special Orders tab uses the shared barcode scanner. Verified Ace item numbers
-fill the SKU field directly. An Ace catalog match can be selected in the scanner.
+fill the SKU field directly. Special Orders requests only Ace verification so unrelated retailer price checks cannot delay SKU selection; the standalone scanner retains price comparison. SKU-only results use a separate five-minute cache. An Ace catalog match can be selected in the scanner.
 Stock orders include the QOH reminder. Customer orders require a positive whole
 quantity, notes, and customer name and contact info. The form confirms a send and
 requires an explicit action to start another order. Retries reuse the order

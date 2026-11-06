@@ -83,7 +83,7 @@ async function lookup(value) {
   stopCamera(); input.value = code; results.replaceChildren(); storeLinks(code); setStatus('Looking up…');
   const submit = form.querySelector('button'); submit.disabled = true;
   try {
-    const response = await fetch(API + '/api/products/lookup?barcode=' + encodeURIComponent(code), {signal: controller.signal, cache: 'no-store'});
+    const response = await fetch(API + '/api/products/lookup?barcode=' + encodeURIComponent(code) + (selectAceSku ? '&mode=sku' : ''), {signal: controller.signal, cache: 'no-store'});
     if (current !== operation) return;
     let data;
     try { data = await response.json(); } catch { throw Error('Product lookup is unavailable. Try again.'); }

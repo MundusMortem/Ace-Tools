@@ -74,7 +74,7 @@ test('shared cache prevents repeat provider calls and daily budget is bounded',a
 });
 test('product endpoint is public without dashboard credentials and honors CORS',async()=>{
  const DB=testDatabase();const data={barcode,found:true,title:'Cached product',offers:[],links:[]};
- DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('verified-v6:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
+ DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('verified-v7:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
  const r=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode,{headers:{Origin:'https://mundusmortem.github.io'}}),{DB});
  assert.equal(r.status,200);assert.equal((await r.json()).title,'Cached product');assert.equal(r.headers.get('access-control-allow-origin'),'https://mundusmortem.github.io');
  const bad=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode=123'),{DB});assert.equal(bad.status,400);
@@ -149,4 +149,40 @@ test('catalog SKU fallback is rejected when the live page has a different GTIN o
   const result=await findProduct(barcode,async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[{...product,offers:[listing('acehardware.com',1,{link:'https://www.acehardware.com/p/57997'})]}]}):new Response(page({'@type':'Product',gtin12:'012800511730',sku:'57997'}),{status,headers:{'Content-Type':'text/html'}}),now);
   assert.equal(result.item_number,null);assert.deepEqual(result.offers,[]);
  }
+});
+
+test('catalog misses still search Ace and follow only two safe product results', async()=>{
+ const seen=[];
+ const fake=async url=>{
+  seen.push(url);
+  if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[]});
+  if(url.includes('/search?'))return new Response('<a href="https://evil.example/p/99999">Bad</a><a href="/p/11111">One</a><a href="/p/22222">Two</a><a href="/p/33333">Three</a>',{headers:{'Content-Type':'text/html'}});
+  return new Response(page({'@type':'Product',gtin12:url.endsWith('22222')?barcode:'012800511730',sku:url.endsWith('22222')?'22222':'11111',name:'Ace item'}),{headers:{'Content-Type':'text/html'}});
+ };
+ const result=await findProduct(barcode,fake,now);
+ assert.equal(result.found,true);assert.equal(result.item_number.number,'22222');assert.equal(result.title,'Ace item');
+ assert.equal(seen.length,4);assert.ok(!seen.some(url=>url.includes('evil.example')||url.endsWith('33333')));
+});
+test('successful first attempts do not fetch search-result links', async()=>{
+ let calls=0;
+ const result=await findProduct(barcode,async url=>{
+  calls++;
+  if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[product]});
+  return new Response(page({'@type':'Product',gtin12:barcode,sku:'22222'})+'<a href="/p/33333">More</a>',{headers:{'Content-Type':'text/html'}});
+ },now);
+ assert.equal(result.item_number.number,'22222');assert.equal(calls,2);
+});
+test('SKU lookups skip unrelated retailer requests and use a separate cache', async()=>{
+ const DB=testDatabase();const seen=[];
+ const fake=async url=>{
+  seen.push(url);
+  if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[{...product,offers:[listing('lowes.com')]}]});
+  assert.ok(url.includes('acehardware.com'),'unrelated retailer must not delay SKU selection');
+  return new Response(page({'@type':'Product',gtin12:barcode,sku:'22222'}),{headers:{'Content-Type':'text/html'}});
+ };
+ const request=new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode+'&mode=sku');
+ assert.equal((await productLookup(request,{DB},fake)).item_number.number,'22222');
+ await productLookup(request,{DB},fake);assert.equal(seen.length,2);
+ assert.ok(DB.sqlite.prepare('SELECT barcode FROM product_cache WHERE barcode LIKE ?').get('sku-v7:%'));
+ assert.equal(DB.sqlite.prepare('SELECT barcode FROM product_cache WHERE barcode LIKE ?').get('verified-v7:%'),undefined);
 });
