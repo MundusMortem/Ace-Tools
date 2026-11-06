@@ -14,7 +14,7 @@ dialog.innerHTML = `<div class="scan-heading"><div class="scan-title-icon">${ico
 document.body.append(dialog);
 const find = selector => dialog.querySelector(selector);
 const video = find('video'), camera = find('.scan-camera'), status = find('.scan-status'), results = find('.scan-results'), searches = find('.scan-searches'), form = find('form'), input = find('#scanner-code');
-let operation = 0, controller = null, selectAceSku = null;
+let operation = 0, controller = null, selectAceSku = null, defaultAceSku = null;
 const scanner = new CameraScanner(video, code => lookup(code));
 function node(tag, className, text) { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined) n.textContent = text; return n; }
 function link(label, url, className = '') {
@@ -91,7 +91,8 @@ function useAceSku(item, title) {
   dialog.close();
   select(item.number, title);
 }
-export function openScanner(onAceSku = null) {
+export function setAceSkuHandler(handler) { defaultAceSku = handler; }
+export function openScanner(onAceSku = defaultAceSku) {
   if (dialog.open) return;
   selectAceSku = onAceSku;
   dialog.showModal();

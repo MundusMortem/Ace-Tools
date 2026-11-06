@@ -1,4 +1,4 @@
-import {openScanner} from '../scanner/app.mjs?v=3';
+import {openScanner, setAceSkuHandler} from '../scanner/app.mjs?v=4';
 
 const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';
@@ -48,8 +48,7 @@ orderType.addEventListener('change', updateOrderType);
 updateOrderType();
 send.disabled = false;
 
-byId('order-scan').addEventListener('click', () => {
-  openScanner((number, title) => {
+setAceSkuHandler((number, title) => {
     sku.value = number;
     if (!description.value.trim() || description.value === scannedTitle) {
       scannedTitle = title?.trim() ?? '';
@@ -57,8 +56,8 @@ byId('order-scan').addEventListener('click', () => {
     }
     sku.focus();
     notice('order-scan-status', 'Ace SKU ' + number + ' loaded.', 'success');
-  });
 });
+byId('order-scan').addEventListener('click', () => openScanner());
 
 sku.addEventListener('input', () => notice('order-scan-status'));
 
