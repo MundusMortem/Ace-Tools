@@ -78,6 +78,17 @@ protection uses an order reference supplied by the Ace Tools tab.
 Sign in to **Admin** as `admin` to change recipients. Changes apply to all users and
 persist in Script Properties. Keep the PIN and recipient settings out of Git.
 
+## Screen Pricing
+
+The Screen Pricing tab calculates screen and glass estimates with an itemized
+breakdown. Width comes before length. Admin uses the same credentials as Special
+Orders. All material, labor and add-on rates and the percentage adjustment are
+shared and stored in Apps Script. The original rates are used until the first save.
+
+Screen Pricing uses the same deployed Apps Script web app as Special Orders.
+Deploy the updated script from the existing sender account before publishing the
+frontend. Keep both frontend endpoint URLs aligned when moving the deployment.
+
 ## Source
 
 - `dist/`: static frontend published to GitHub Pages.
