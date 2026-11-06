@@ -1,6 +1,6 @@
 import {openScanner} from '../scanner/app.mjs?v=2';
 
-const endpoint = 'https://script.google.com/macros/s/AKfycbz6UihAsyghr9oP2ABgSTauzlWCDbrudvMWbi-tdMnwSlF4NOrs2A68uUAXQXoJNZpm/exec';
+const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';
 const byId = id => document.getElementById(id);
 const form = byId('order-form');
