@@ -34,7 +34,7 @@ search-result product links are checked concurrently within a shared 2.5-second
 budget; exact GTIN verification is still required. If a matching catalog link resolves
 to an Ace item number but the product page is blocked, that number is displayed as
 a catalog match. Unconfirmed retailer item numbers are marked not verified; absence
-is not a claim that the retailer does not sell the item. True Value is checked only
+is not a claim that the retailer does not sell the item. When Ace supplies no item number, Klem's public Ace dealer catalog is checked with a 2.5-second budget. An exact barcode match supplies a labeled, selectable dealer SKU; it never imports automatically. The standalone scanner also offers Copy Ace SKU. True Value is checked only
 when Ace returns no item number, within a two-second budget. No retailer price
 lookup or comparison is performed. Item lookups are cached for five minutes.
 Unknown items and provider failures retain direct store search links.

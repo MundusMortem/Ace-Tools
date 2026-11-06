@@ -39,7 +39,7 @@ test('Ace is preferred to True Value for exact retailer item numbers',async()=>{
   return new Response(page({'@type':'Product',gtin12:barcode,sku:ace?'1234567':'654321',offers:{price:ace?'12.50':'11.00',priceCurrency:'USD',availability:'https://schema.org/InStock'}}),{headers:{'Content-Type':'text/html'}});
  };
  const r=await findProduct(barcode,fake,now);assert.equal(r.item_number.merchant,'Ace Hardware');assert.equal(r.item_number.number,'1234567');assert.equal(r.best,undefined);assert.equal(r.offers,undefined);
- const onlyTV=await findProduct(barcode,async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[{...item,offers:[item.offers[0]]}]}):url.startsWith('https://www.acehardware.com/search')?new Response('',{status:404}):fake(url),now);
+ const onlyTV=await findProduct(barcode,async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[{...item,offers:[item.offers[0]]}]}):url.includes('klemsonline.com') || url.startsWith('https://www.acehardware.com/search')?new Response('',{status:404}):fake(url),now);
  assert.equal(onlyTV.item_number.merchant,'True Value');
 });
 test('mismatched retailer GTIN cannot supply a SKU or model',async()=>{
@@ -49,7 +49,7 @@ test('mismatched retailer GTIN cannot supply a SKU or model',async()=>{
 test('untrusted URLs and redirect targets are never fetched',async()=>{
  const called=[];
  const fake=async url=>{called.push(url);if(url.startsWith('https://api.upcitemdb.com/'))return response({items:[{...product,offers:[listing('acehardware.com',10,{link:'https://www.upcitemdb.com/norob/alink/?id=example'})]}]});return new Response(null,{status:302,headers:{Location:'http://169.254.169.254/latest/meta-data/'}});};
- await findProduct(barcode,fake,now);assert.equal(called.length,3);assert.ok(called.every(url=>!url.includes('169.254')));
+ await findProduct(barcode,fake,now);assert.equal(called.length,4);assert.ok(called.every(url=>!url.includes('169.254')));
  assert.equal(safeProductURL('javascript:alert(1)'),null);assert.equal(safeProductURL('https://user:password@example.com/'),null);
 });
 test('provider failure and throttling return useful errors',async()=>{
@@ -67,7 +67,7 @@ test('shared cache prevents repeat provider calls and daily budget is bounded',a
 });
 test('product endpoint is public without dashboard credentials and honors CORS',async()=>{
  const DB=testDatabase();const data={barcode,found:true,title:'Cached product',offers:[],links:[]};
- DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('items-v8:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
+ DB.sqlite.prepare('INSERT INTO product_cache VALUES (?,?,?)').run('items-v9:'+barcode.padStart(14,'0'),JSON.stringify(data),Date.now()+100000);
  const r=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode='+barcode,{headers:{Origin:'https://mundusmortem.github.io'}}),{DB});
  assert.equal(r.status,200);assert.equal((await r.json()).title,'Cached product');assert.equal(r.headers.get('access-control-allow-origin'),'https://mundusmortem.github.io');
  const bad=await worker.fetch(new Request('https://ace-tools.bonnylight3.chatgpt.site/api/products/lookup?barcode=123'),{DB});assert.equal(bad.status,400);
@@ -192,4 +192,22 @@ test('item-only cache is shared by the standalone scanner and Special Orders', a
  await productLookup(new Request(url),{DB},fake);
  const cached=await productLookup(new Request(url+'&mode=sku'),{DB},fake);
  assert.equal(calls,2);assert.equal(cached.item_number.number,'22222');assert.equal('offers' in cached,false);
+});
+
+test('reported barcode 082901170006 recovers selectable SKU 17000 from an exact Ace dealer match',async()=>{
+ const official=JSON.parse(readFileSync(new URL('./fixtures/ace-dealer-17000.json',import.meta.url),'utf8'));
+ for(const catalog of [{items:[]},{items:[{upc:'082901170006',title:official.name}]}]) {
+  const result=await findProduct('082901170006',async url=>{
+   if(url.startsWith('https://api.upcitemdb.com/'))return response(catalog);
+   if(url.includes('acehardware.com'))return new Response('Forbidden',{status:403});
+   assert.equal(url,'https://klemsonline.com/p/item-082901170006');
+   return new Response(page(official),{headers:{'Content-Type':'text/html'}});
+  },now);
+  assert.equal(result.found,true);assert.equal(result.item_number.number,'17000');
+  assert.equal(result.item_number.verified,false);assert.equal(result.item_number.source_label,'Ace dealer match');
+ }
+});
+test('dealer with another barcode cannot supply an Ace SKU',async()=>{
+ const result=await findProduct(barcode,async url=>url.startsWith('https://api.upcitemdb.com/')?response({items:[product]}):url.includes('acehardware.com')?new Response('',{status:403}):new Response(page({'@type':'Product',gtin:'082901170006',sku:'17000'}),{headers:{'Content-Type':'text/html'}}),now);
+ assert.equal(result.item_number,null);
 });

@@ -1,4 +1,4 @@
-import {openScanner, setAceSkuHandler} from '../scanner/app.mjs?v=4';
+import {openScanner, setAceSkuHandler} from '../scanner/app.mjs?v=5';
 
 const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';

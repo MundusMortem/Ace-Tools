@@ -41,13 +41,17 @@ function resultView(data) {
   const identifier = node('div');
   identifier.append(node('dt', '', data.item_number ? data.item_number.merchant + ' item' : 'Ace / True Value item'));
   const value = node('dd'); value.append(data.item_number ? link(data.item_number.number + ' ↗', data.item_number.url) : document.createTextNode('Not verified')); identifier.append(value);
-  if (data.item_number?.verified === false) identifier.append(node('span', 'scan-match-note', 'Catalog match'));
+  if (data.item_number?.verified === false) identifier.append(node('span', 'scan-match-note', data.item_number.source_label || 'Catalog match'));
   details.append(identifier);
   product.append(details);
-  if (selectAceSku && data.item_number?.merchant === 'Ace Hardware') {
-    const use = node('button', 'scan-control scan-primary', 'Use Ace SKU ' + data.item_number.number);
+  if (data.item_number?.merchant === 'Ace Hardware') {
+    const use = node('button', 'scan-control scan-primary', (selectAceSku ? 'Use Ace SKU ' : 'Copy Ace SKU ') + data.item_number.number);
     use.type = 'button';
-    use.addEventListener('click', () => useAceSku(data.item_number, data.title));
+    use.addEventListener('click', async () => {
+      if (selectAceSku) { useAceSku(data.item_number, data.title); return; }
+      try { await navigator.clipboard.writeText(data.item_number.number); setStatus('Ace SKU copied.'); }
+      catch { setStatus('Ace SKU: ' + data.item_number.number); }
+    });
     product.append(use);
   }
   results.append(product);

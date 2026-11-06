@@ -10,7 +10,7 @@ function element() {
   addEventListener(type,fn){this.events[type]=fn;},querySelector(){return element();},
   showModal(){this.open=true;},close(){this.open=false;this.events.close?.();}};
 }
-function harness(verified=true) {
+function harness(verified=true, sourceLabel) {
  const fields=new Map();const get=id=>{if(!fields.has(id))fields.set(id,element());return fields.get(id);};
  const selected=new Map();const header=element();let dialog;
  const document={hidden:false,querySelector:()=>header,getElementById:get,
@@ -18,7 +18,7 @@ function harness(verified=true) {
   body:element(),addEventListener(){},createTextNode:text=>({textContent:text})};
  const context={document,window:{addEventListener(){}},URL,AbortController,AbortSignal,
   CameraScanner:class {stop(){} async start(){}},scanImage(){},
-  fetch:async()=>({ok:true,json:async()=>({found:true,title:'Verified item',barcode:'043156961306',item_number:{merchant:'Ace Hardware',number:'57997',url:'https://www.acehardware.com/p/57997',verified}})})};
+  fetch:async()=>({ok:true,json:async()=>({found:true,title:'Verified item',barcode:'043156961306',item_number:{merchant:'Ace Hardware',number:'57997',url:'https://www.acehardware.com/p/57997',verified,source_label:sourceLabel}})})};
  const scanner=readFileSync(new URL('../dist/scanner/app.mjs',import.meta.url),'utf8').replace(/^import .*;\n/,'').replaceAll('export ','');
  runInNewContext('(function(){'+scanner+';globalThis.scanner={openScanner,setAceSkuHandler,lookup};})();',context);
  context.openScanner=context.scanner.openScanner;context.setAceSkuHandler=context.scanner.setAceSkuHandler;
@@ -39,4 +39,15 @@ test('catalog matches remain selectable and preserve existing notes',async()=>{
  const product=h.selected.get('.scan-results').children[0];
  product.children.find(node=>node.textContent==='Use Ace SKU 57997').events.click();
  assert.equal(h.get('order-sku').value,'57997');assert.equal(h.get('order-description').value,'Customer notes');
+});
+
+test('exact dealer matches are labeled and can be imported with one explicit click',async()=>{
+ const h=harness(false,'Ace dealer match');h.get('order-scan').events.click();
+ await h.context.scanner.lookup('043156961306');
+ assert.equal(h.get('order-sku').value,'');
+ const product=h.selected.get('.scan-results').children[0];
+ const details=product.children[1];
+ assert.ok(details.children.some(block=>block.children.some(node=>node.textContent==='Ace dealer match')));
+ await product.children.find(node=>node.textContent==='Use Ace SKU 57997').events.click();
+ assert.equal(h.get('order-sku').value,'57997');assert.equal(h.dialog.open,false);
 });

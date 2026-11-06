@@ -1,6 +1,6 @@
 const PRODUCT_API = 'https://api.upcitemdb.com/prod/trial/lookup';
 const CATALOG_HOSTS = new Set(['upcitemdb.com', 'www.upcitemdb.com']);
-const RETAIL_HOSTS = new Set(['acehardware.com','www.acehardware.com','truevalue.com','www.truevalue.com']);
+const RETAIL_HOSTS = new Set(['acehardware.com','www.acehardware.com','truevalue.com','www.truevalue.com','klemsonline.com']);
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
 const clean = (value, limit = 200) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 export function safeProductURL(value) {
@@ -176,6 +176,20 @@ export async function findProduct(barcode, fetcher = fetch, now = Date.now()) {
   if (extra.identifier) result.item_number = extra.identifier;
   if (extra.model) result.model = extra.model;
   if (!result.title && extra.title) result.title = extra.title;
+  // A public Ace dealer provides exact barcode/SKU data when Ace blocks server requests.
+  // Keep dealer identifiers selectable, rather than automatically importing them.
+  if (!result.item_number) {
+    try {
+      const dealer = await publicRetailerPage('https://klemsonline.com/p/item-' + encodeURIComponent(barcode), fetcher, [], AbortSignal.timeout(2500));
+      const matched = dealer && new URL(dealer.url).hostname === 'klemsonline.com' && retailerProduct(dealer.html, barcode);
+      const number = clean(matched?.sku, 40);
+      if (matched && /^\d{4,9}$/.test(number)) {
+        result.item_number = {merchant: 'Ace Hardware', number, url: dealer.url, verified: false, source_label: 'Ace dealer match'};
+        result.title ||= clean(matched.name, 300);
+        result.model ||= clean(matched.mpn, 100) || null;
+      }
+    } catch (error) { console.warn('Ace dealer lookup failed', error.name); }
+  }
   // True Value is only needed when Ace did not supply an item number.
   const trueValue = links.find(link => link.domain === 'truevalue.com');
   if (!result.item_number && trueValue) {
@@ -184,7 +198,7 @@ export async function findProduct(barcode, fetcher = fetch, now = Date.now()) {
     if (!result.model && fallback.model) result.model = fallback.model;
     if (!result.title && fallback.title) result.title = fallback.title;
   }
-  if (!item && result.item_number?.verified !== true) return {barcode, found: false, links: productSearchLinks(barcode)};
+  if (!item && !result.item_number) return {barcode, found: false, links: productSearchLinks(barcode)};
   return {found: true, ...result};
 }
 async function quota(db, key, limit, expiresAt) {
@@ -195,7 +209,7 @@ export async function productLookup(request, env, fetcher = fetch) {
   const barcode = productBarcode(new URL(request.url).searchParams.get('barcode'));
   if (!env.DB) fail('Product lookup is unavailable.', 503);
   const now = Date.now();
-  const cacheKey = 'items-v8:' + gtinKey(barcode);
+  const cacheKey = 'items-v9:' + gtinKey(barcode);
   const cached = await env.DB.prepare('SELECT data FROM product_cache WHERE barcode = ? AND expires_at > ?').bind(cacheKey, now).first();
   if (cached) {
     const data = JSON.parse(cached.data);
