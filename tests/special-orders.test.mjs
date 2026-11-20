@@ -109,22 +109,24 @@ test('the original standalone form can still submit valid orders to the same URL
   assert.match(mail[0].body, /Order for STOCK\. Check QOH\.$/);
 });
 
-test('screen estimates discount labor before adjusting and rounding the total', () => {
+test('screen estimates discount labor before rounding labor and materials separately', () => {
   const screen = {
     item: 'screen', width: 24, length: 12, material: 'fiberglass', frame: 'aluminum',
     quantities: {ptco: 2}, bulkPricing: false
   };
   const settings = {...defaultSettings, adjustment: 10, roundUp: false};
-  const price = (input, options = settings) => estimate(input, options).toFixed(2);
-  assert.equal(price(screen), '16.21');
-  assert.equal(price({...screen, bulkPricing: true}), '15.03');
-  assert.equal(price({...screen, bulkPricing: true}, {...settings, bulkLaborDiscount: 25}), '13.24');
-  assert.equal(estimate({...screen, bulkPricing: true}, {...settings, roundUp: true}), 16);
-  assert.equal(price({...screen, item: 'glass', bulkPricing: true}), '26.44');
-  assert.equal(price({...screen, width: 0, bulkPricing: true}), '1.10');
-  assert.equal(estimate(screen, {...settings, adjustment: -100, roundUp: true}), 0);
-  assert.equal(estimate({...screen, width: 0, quantities: {ptco: 50}},
-    {...settings, adjustment: 12, roundUp: true}), 28);
+  assert.deepEqual(estimate(screen, settings), {labor: 12, materials: 4, total: 16});
+  assert.deepEqual(estimate({...screen, bulkPricing: true}, settings), {labor: 11, materials: 4, total: 15});
+  assert.deepEqual(estimate({...screen, bulkPricing: true}, {...settings, bulkLaborDiscount: 25}),
+    {labor: 9, materials: 4, total: 13});
+  assert.deepEqual(estimate({...screen, width: 30, length: 20, quantities: {}},
+    {...settings, adjustment: 15, roundUp: true}), {labor: 18, materials: 6, total: 24});
+  assert.deepEqual(estimate({...screen, item: 'glass', bulkPricing: true}, settings),
+    {labor: 14, materials: 12, total: 26});
+  assert.deepEqual(estimate({...screen, width: 0, bulkPricing: true}, settings), {labor: 0, materials: 1, total: 1});
+  assert.deepEqual(estimate(screen, {...settings, adjustment: -100, roundUp: true}), {labor: 0, materials: 0, total: 0});
+  assert.deepEqual(estimate({...screen, width: 0, quantities: {ptco: 50}},
+    {...settings, adjustment: 12, roundUp: true}), {labor: 0, materials: 28, total: 28});
 });
 
 test('screen pricing options default for existing rates and persist through admin saves', () => {

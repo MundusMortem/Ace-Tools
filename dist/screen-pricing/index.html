@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../scanner/style.css?v=4">
 <link rel="stylesheet" href="../special-orders/orders.css">
-<link rel="stylesheet" href="./pricing.css?v=2">
+<link rel="stylesheet" href="./pricing.css?v=3">
 <script type="module" src="../scanner/app.mjs?v=5"></script>
-<script type="module" src="./pricing.mjs?v=2"></script>
+<script type="module" src="./pricing.mjs?v=3"></script>
 </head>
 <body>
 <div class="ambient" aria-hidden="true"></div>
@@ -44,7 +44,11 @@
     <h2 id="estimate-heading">Estimate</h2>
     <p id="quote-status" class="order-status" role="status">Loading prices…</p>
     <button type="button" id="retry-prices" class="order-button" hidden>Retry prices</button>
-    <output id="quote" for="item-type width length screen-material frame-material bulk-pricing" hidden></output>
+    <dl id="quote" aria-live="polite" aria-atomic="true" hidden>
+      <div><dt>Labor</dt><dd id="quote-labor"></dd></div>
+      <div><dt>Materials</dt><dd id="quote-materials"></dd></div>
+      <div class="quote-total"><dt>Total</dt><dd id="quote-total"></dd></div>
+    </dl>
   </section>
 </div>
 <dialog id="pricing-admin" class="order-panel" aria-labelledby="pricing-admin-heading">

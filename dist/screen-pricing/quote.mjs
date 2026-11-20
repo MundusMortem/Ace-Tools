@@ -20,6 +20,13 @@ export const defaultRates = Object.fromEntries(rateGroups.flatMap(([, rates]) =>
 export const defaultSettings = {rates: defaultRates, adjustment: 0, roundUp: true, bulkLaborDiscount: 10, revision: 0};
 const screenMaterials = {fiberglass: 'fb', aluminum: 'al', pet: 'pet'};
 
+function roundCost(cost, roundUp) {
+  const nearestDollar = Math.round(cost);
+  // Avoid adding a dollar due to floating-point noise at whole-dollar boundaries.
+  if (!roundUp || Math.abs(cost - nearestDollar) <= Number.EPSILON * nearestDollar) return nearestDollar;
+  return Math.ceil(cost);
+}
+
 export function estimate({item, width, length, material, frame, quantities, bulkPricing}, settings) {
   const {rates, adjustment, roundUp, bulkLaborDiscount} = settings;
   let materials = 0;
@@ -40,10 +47,9 @@ export function estimate({item, width, length, material, frame, quantities, bulk
     if (quantity > 0) materials += quantity * rates[key];
   }
 
-  if (bulkPricing) labor *= 1 - bulkLaborDiscount / 100;
-  const total = (materials + labor) * (1 + adjustment / 100);
-  // Keep floating-point noise at exact dollar boundaries from adding a dollar.
-  const nearestDollar = Math.round(total);
-  if (Math.abs(total - nearestDollar) <= Number.EPSILON * nearestDollar) return nearestDollar;
-  return roundUp ? Math.ceil(total) : total;
+  if (bulkPricing) labor = labor * (100 - bulkLaborDiscount) / 100;
+  const percent = 100 + adjustment;
+  labor = roundCost(labor * percent / 100, roundUp);
+  materials = roundCost(materials * percent / 100, roundUp);
+  return {labor, materials, total: labor + materials};
 }

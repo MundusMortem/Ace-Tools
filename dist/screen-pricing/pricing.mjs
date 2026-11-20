@@ -1,4 +1,4 @@
-import {addOns, rateGroups, defaultSettings, estimate} from './quote.mjs?v=2';
+import {addOns, rateGroups, defaultSettings, estimate} from './quote.mjs?v=3';
 
 const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';
@@ -25,7 +25,7 @@ const reload = byId('reload-pricing');
 const adminStatus = byId('pricing-admin-status');
 const rateInputs = new Map();
 const quantities = new Map();
-const currency = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'});
+const currency = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0});
 const optionsUnavailable = 'Rounding and bulk discount settings require an update to the pricing service.';
 let settings;
 let editingRevision = 0;
@@ -84,13 +84,15 @@ function updateEstimate() {
     return;
   }
 
-  const total = estimate({
+  const result = estimate({
     item: item.value, width: width.valueAsNumber || 0, length: length.valueAsNumber || 0,
     material: byId('screen-material').value, frame: byId('frame-material').value,
     bulkPricing: bulkPricing.checked,
     quantities: Object.fromEntries([...quantities].map(([key, input]) => [key, input.valueAsNumber || 0]))
   }, settings);
-  quote.value = currency.format(total);
+  byId('quote-labor').textContent = currency.format(result.labor);
+  byId('quote-materials').textContent = currency.format(result.materials);
+  byId('quote-total').textContent = currency.format(result.total);
   status.textContent = !width.value || !length.value ? 'Enter both dimensions to include material and labor.' : '';
   quote.hidden = false;
 }
