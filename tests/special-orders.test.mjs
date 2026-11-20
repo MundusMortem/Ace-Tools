@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {randomUUID} from 'node:crypto';
+import {defaultSettings, estimate} from '../dist/screen-pricing/quote.mjs';
 
 const script = readFileSync(new URL('../apps-script/special-orders.gs', import.meta.url), 'utf8');
 const protocol = 'ace-special-orders-v1';
@@ -106,4 +107,43 @@ test('the original standalone form can still submit valid orders to the same URL
   assert.equal(context.doPost({parameter: legacy}).result, 'success');
   assert.equal(mail.length, 1);
   assert.match(mail[0].body, /Order for STOCK\. Check QOH\.$/);
+});
+
+test('screen estimates discount labor before adjusting and rounding the total', () => {
+  const screen = {
+    item: 'screen', width: 24, length: 12, material: 'fiberglass', frame: 'aluminum',
+    quantities: {ptco: 2}, bulkPricing: false
+  };
+  const settings = {...defaultSettings, adjustment: 10, roundUp: false};
+  const price = (input, options = settings) => estimate(input, options).toFixed(2);
+  assert.equal(price(screen), '16.21');
+  assert.equal(price({...screen, bulkPricing: true}), '15.03');
+  assert.equal(price({...screen, bulkPricing: true}, {...settings, bulkLaborDiscount: 25}), '13.24');
+  assert.equal(estimate({...screen, bulkPricing: true}, {...settings, roundUp: true}), 16);
+  assert.equal(price({...screen, item: 'glass', bulkPricing: true}), '26.44');
+  assert.equal(price({...screen, width: 0, bulkPricing: true}), '1.10');
+  assert.equal(estimate(screen, {...settings, adjustment: -100, roundUp: true}), 0);
+  assert.equal(estimate({...screen, width: 0, quantities: {ptco: 50}},
+    {...settings, adjustment: 12, roundUp: true}), 28);
+});
+
+test('screen pricing options default for existing rates and persist through admin saves', () => {
+  const {post, values, context} = service();
+  const legacy = {revision: 1, adjustment: 10, rates: defaultSettings.rates};
+  values.set('screenPricing.settings', JSON.stringify(legacy));
+  const read = () => context.doGet({parameter: {action: 'screenPricing'}});
+  const save = (settings, credentials = admin) => post('saveScreenPricing', {
+    ...credentials, settings: JSON.stringify(settings)
+  });
+  assert.equal(read().screenPricingOptions, true);
+  assert.deepEqual(read().settings, {...legacy, roundUp: true, bulkLaborDiscount: 10});
+  assert.equal(save({...legacy, roundUp: 'false'}).result, 'error');
+  assert.equal(save({...legacy, bulkLaborDiscount: -1}).result, 'error');
+  assert.equal(save({...legacy, bulkLaborDiscount: 101}).result, 'error');
+  const updated = {...legacy, roundUp: false, bulkLaborDiscount: 0};
+  assert.equal(save(updated, {...admin, password: 'wrong'}).result, 'error');
+  assert.deepEqual(save(updated).settings, {...updated, revision: 2});
+  assert.equal(save(updated).result, 'conflict');
+  assert.equal(save({...legacy, revision: 2, adjustment: 5}).result, 'success');
+  assert.deepEqual(read().settings, {...updated, revision: 3, adjustment: 5});
 });

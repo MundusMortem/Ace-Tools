@@ -1,4 +1,4 @@
-import {addOns, rateGroups, defaultRates, estimate} from './quote.mjs';
+import {addOns, rateGroups, defaultSettings, estimate} from './quote.mjs?v=2';
 
 const endpoint = 'https://script.google.com/macros/s/AKfycbxAYm8bwE5nCOcJ0HPTexh5twHfs3geMOBqyRwRCSvdoPvlpkwyyXv63EQoVQ4XRzJI/exec';
 const protocol = 'ace-special-orders-v1';
@@ -7,6 +7,7 @@ const form = byId('estimate');
 const item = byId('item-type');
 const width = byId('width');
 const length = byId('length');
+const bulkPricing = byId('bulk-pricing');
 const quote = byId('quote');
 const retry = byId('retry-prices');
 const openAdmin = byId('open-admin');
@@ -16,6 +17,8 @@ const login = byId('pricing-login');
 const edit = byId('pricing-edit');
 const fields = byId('settings-fields');
 const adjustment = byId('price-adjustment');
+const roundUp = byId('round-up');
+const bulkLaborDiscount = byId('bulk-labor-discount');
 const save = byId('save-pricing');
 const close = byId('close-admin');
 const reload = byId('reload-pricing');
@@ -23,6 +26,7 @@ const adminStatus = byId('pricing-admin-status');
 const rateInputs = new Map();
 const quantities = new Map();
 const currency = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'});
+const optionsUnavailable = 'Rounding and bulk discount settings require an update to the pricing service.';
 let settings;
 let editingRevision = 0;
 let loading = false;
@@ -65,12 +69,6 @@ for (const [group, rates] of rateGroups) {
   byId('price-list').append(section);
 }
 
-function row([label, value]) {
-  const line = element('div');
-  line.append(element('dt', label), element('dd', currency.format(value)));
-  return line;
-}
-
 function updateEstimate() {
   byId('screen-options').hidden = item.value !== 'screen';
   const status = byId('quote-status');
@@ -86,23 +84,13 @@ function updateEstimate() {
     return;
   }
 
-  const result = estimate({
+  const total = estimate({
     item: item.value, width: width.valueAsNumber || 0, length: length.valueAsNumber || 0,
     material: byId('screen-material').value, frame: byId('frame-material').value,
+    bulkPricing: bulkPricing.checked,
     quantities: Object.fromEntries([...quantities].map(([key, input]) => [key, input.valueAsNumber || 0]))
-  }, settings.rates);
-  const multiplier = 1 + settings.adjustment / 100;
-  const total = result.labor + result.materials;
-  const totals = [['Base labor', result.labor], ['Base materials', result.materials], ['Base total', total]];
-  if (settings.adjustment !== 0) totals.push(['Adjusted labor', result.labor * multiplier],
-    ['Adjusted materials', result.materials * multiplier], ['Final total', total * multiplier]);
-
-  const totalRows = totals.map(row);
-  totalRows.at(-1).className = 'quote-final';
-  byId('quote-totals').replaceChildren(...totalRows);
-  const lines = result.lines.filter(([, cost]) => cost > 0);
-  byId('quote-breakdown').replaceChildren(...lines.map(row));
-  byId('quote-details').hidden = !lines.length;
+  }, settings);
+  quote.value = currency.format(total);
   status.textContent = !width.value || !length.value ? 'Enter both dimensions to include material and labor.' : '';
   quote.hidden = false;
 }
@@ -121,7 +109,7 @@ async function request(action, values) {
 }
 
 function applySettings(saved) {
-  settings = saved ?? {rates: defaultRates, adjustment: 0, revision: 0};
+  settings = {...defaultSettings, ...saved};
   updateEstimate();
 }
 
@@ -147,7 +135,7 @@ async function loadPrices() {
 
 form.addEventListener('submit', event => event.preventDefault());
 form.addEventListener('input', updateEstimate);
-form.addEventListener('reset', () => queueMicrotask(() => {
+form.addEventListener('reset', () => setTimeout(() => {
   updateEstimate();
   width.focus();
 }));
@@ -160,10 +148,13 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && !admin.open) loadPrices();
 });
 
-function fillEditor(saved) {
-  applySettings(saved);
+function fillEditor(result) {
+  applySettings(result.settings);
   editingRevision = settings.revision;
   adjustment.value = settings.adjustment;
+  roundUp.checked = settings.roundUp;
+  bulkLaborDiscount.value = settings.bulkLaborDiscount;
+  roundUp.disabled = bulkLaborDiscount.disabled = result.screenPricingOptions !== true;
   for (const [key, input] of rateInputs) input.value = settings.rates[key];
   reload.hidden = true;
 }
@@ -194,8 +185,8 @@ reload.addEventListener('click', async () => {
   try {
     const result = await request('screenPricing');
     if (result.result !== 'success') throw new Error();
-    fillEditor(result.settings);
-    adminStatus.textContent = 'Latest prices loaded.';
+    fillEditor(result);
+    adminStatus.textContent = roundUp.disabled ? optionsUnavailable : 'Latest prices loaded.';
   } catch {
     adminStatus.textContent = 'Could not load the latest prices. Try again.';
   } finally {
@@ -212,10 +203,15 @@ settingsForm.addEventListener('submit', async event => {
   const editing = !edit.disabled;
   const values = Object.fromEntries(new FormData(settingsForm));
   if (editing) {
-    values.settings = JSON.stringify({
+    const next = {
       revision: editingRevision, adjustment: adjustment.valueAsNumber,
       rates: Object.fromEntries([...rateInputs].map(([key, input]) => [key, input.valueAsNumber]))
-    });
+    };
+    if (!roundUp.disabled) {
+      next.roundUp = roundUp.checked;
+      next.bulkLaborDiscount = bulkLaborDiscount.valueAsNumber;
+    }
+    values.settings = JSON.stringify(next);
   }
   setBusy(true);
   adminStatus.textContent = editing ? 'Saving prices…' : 'Signing in…';
@@ -226,11 +222,12 @@ settingsForm.addEventListener('submit', async event => {
       adminStatus.textContent = result.message || 'Could not load screen pricing.';
       return;
     }
-    fillEditor(result.settings);
+    fillEditor(result);
     login.hidden = true;
     edit.hidden = edit.disabled = false;
     save.textContent = 'Save prices';
-    adminStatus.textContent = editing ? 'Prices saved for everyone.' : '';
+    const saved = editing ? 'Prices saved for everyone.' : '';
+    adminStatus.textContent = roundUp.disabled ? [saved, optionsUnavailable].filter(Boolean).join(' ') : saved;
   } catch {
     adminStatus.textContent = 'Could not confirm the request. Try again.';
   } finally {

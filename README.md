@@ -76,10 +76,12 @@ persist in Script Properties. Keep the PIN and recipient settings out of Git.
 
 ## Screen Pricing
 
-The Screen Pricing tab calculates screen and glass estimates with an itemized
-breakdown. Width comes before length. Admin uses the same credentials as Special
-Orders. All material, labor and add-on rates and the percentage adjustment are
-shared and stored in Apps Script. The original rates are used until the first save.
+The Screen Pricing tab shows one total for screen and glass estimates. Width comes
+before length. Bulk pricing applies the configured discount to labor only. The
+percentage adjustment applies to the total before optional rounding up to the
+nearest dollar. Rounding is on by default, and the bulk labor discount defaults
+to 10%. Admin uses the same credentials as Special Orders. Rates and pricing
+options are shared and stored in Apps Script.
 
 Screen Pricing uses the same deployed Apps Script web app as Special Orders.
 Deploy the updated script from the existing sender account before publishing the
