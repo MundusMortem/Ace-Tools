@@ -17,33 +17,33 @@ export const rateGroups = [
 ];
 export const defaultRates = Object.fromEntries(rateGroups.flatMap(([, rates]) =>
   rates.map(([key, , rate]) => [key, rate])));
-const screenMaterials = {
-  fiberglass: ['fb', 'Fiberglass Screen Material'],
-  aluminum: ['al', 'Aluminum Screen Material'],
-  pet: ['pet', 'Pet Screen Material']
-};
+export const defaultSettings = {rates: defaultRates, adjustment: 0, roundUp: true, bulkLaborDiscount: 10, revision: 0};
+const screenMaterials = {fiberglass: 'fb', aluminum: 'al', pet: 'pet'};
 
-export function estimate({item, width, length, material, frame, quantities}, rates) {
-  const materials = [];
-  const labor = [];
+export function estimate({item, width, length, material, frame, quantities, bulkPricing}, settings) {
+  const {rates, adjustment, roundUp, bulkLaborDiscount} = settings;
+  let materials = 0;
+  let labor = 0;
   const perimeter = (length + width) * 2;
   if (width > 0 && length > 0) {
     if (item === 'glass') {
-      materials.push(['Glass', width * length * rates.glass]);
-      labor.push(['Glass Installation', perimeter * rates.wlw]);
+      materials = width * length * rates.glass;
+      labor = perimeter * rates.wlw;
     } else {
-      const [prefix, label] = screenMaterials[material];
       const roll = widths.find(size => width <= size);
-      materials.push([label, (length / 12) * rates[prefix + roll]], ['Spline', (perimeter / 12) * rates.spline]);
-      labor.push(frame === 'wood'
-        ? ['Wood Frame Installation', perimeter * rates.wlwd]
-        : ['Aluminum Frame Installation', perimeter * rates.wlsc]);
+      materials = (length / 12) * rates[screenMaterials[material] + roll] + (perimeter / 12) * rates.spline;
+      labor = perimeter * (frame === 'wood' ? rates.wlwd : rates.wlsc);
     }
   }
-  for (const [key, label] of addOns) {
+  for (const [key] of addOns) {
     const quantity = quantities[key];
-    if (quantity > 0) materials.push([label + ' (×' + quantity + ')', quantity * rates[key]]);
+    if (quantity > 0) materials += quantity * rates[key];
   }
-  const rounded = lines => Math.round(lines.reduce((sum, [, cost]) => sum + cost, 0));
-  return {labor: rounded(labor), materials: rounded(materials), lines: [...materials, ...labor]};
+
+  if (bulkPricing) labor *= 1 - bulkLaborDiscount / 100;
+  const total = (materials + labor) * (1 + adjustment / 100);
+  // Keep floating-point noise at exact dollar boundaries from adding a dollar.
+  const nearestDollar = Math.round(total);
+  if (Math.abs(total - nearestDollar) <= Number.EPSILON * nearestDollar) return nearestDollar;
+  return roundUp ? Math.ceil(total) : total;
 }

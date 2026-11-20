@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../scanner/style.css?v=4">
 <link rel="stylesheet" href="../special-orders/orders.css">
-<link rel="stylesheet" href="./pricing.css">
+<link rel="stylesheet" href="./pricing.css?v=2">
 <script type="module" src="../scanner/app.mjs?v=5"></script>
-<script type="module" src="./pricing.mjs"></script>
+<script type="module" src="./pricing.mjs?v=2"></script>
 </head>
 <body>
 <div class="ambient" aria-hidden="true"></div>
@@ -31,6 +31,7 @@
       <label>Width (inches)<input type="number" id="width" min="1" max="72" step="any" inputmode="decimal"></label>
       <label>Length (inches)<input type="number" id="length" min="1" max="120" step="any" inputmode="decimal"></label>
     </div>
+    <label class="pricing-checkbox"><input type="checkbox" id="bulk-pricing"> Bulk pricing</label>
     <h3>Add-ons</h3>
     <div id="addons" class="price-fields price-addons"></div>
     <div class="order-actions">
@@ -43,13 +44,7 @@
     <h2 id="estimate-heading">Estimate</h2>
     <p id="quote-status" class="order-status" role="status">Loading prices…</p>
     <button type="button" id="retry-prices" class="order-button" hidden>Retry prices</button>
-    <div id="quote" hidden>
-      <dl id="quote-totals" aria-live="polite"></dl>
-      <details id="quote-details" open>
-        <summary>Detailed cost breakdown</summary>
-        <dl id="quote-breakdown"></dl>
-      </details>
-    </div>
+    <output id="quote" for="item-type width length screen-material frame-material bulk-pricing" hidden></output>
   </section>
 </div>
 <dialog id="pricing-admin" class="order-panel" aria-labelledby="pricing-admin-heading">
@@ -66,6 +61,10 @@
           <button class="order-button" id="decrease" type="button" aria-label="Decrease adjustment by five percentage points">−5%</button>
           <input id="price-adjustment" name="adjustment" type="number" min="-100" max="100" step="any" required>
           <button class="order-button" id="increase" type="button" aria-label="Increase adjustment by five percentage points">+5%</button>
+        </div>
+        <label class="pricing-checkbox"><input id="round-up" type="checkbox" checked> Round up to the nearest dollar</label>
+        <div class="price-fields">
+          <label>Bulk labor discount (%)<input id="bulk-labor-discount" type="number" min="0" max="100" step="any" value="10" required></label>
         </div>
         <div id="price-list"></div>
       </fieldset>

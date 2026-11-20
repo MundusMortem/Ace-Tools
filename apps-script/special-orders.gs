@@ -6,6 +6,7 @@ const RECIPIENTS_KEY = 'SPECIAL_ORDER_RECIPIENTS';
 const PASSWORD_KEY = 'SPECIAL_ORDER_ADMIN_PASSWORD';
 const ATTEMPTS_KEY = 'specialOrder.adminAttempts';
 const SCREEN_PRICING_KEY = 'screenPricing.settings';
+const SCREEN_PRICING_OPTIONS = {roundUp: true, bulkLaborDiscount: 10};
 const SCREEN_RATE_KEYS = ['fb', 'al', 'pet'].flatMap(material =>
   [24, 30, 36, 48, 60, 72].map(width => material + width)).concat([
   'glass', 'spline', 'wlsc', 'wlw', 'wlwd', 'ptfr', 'ptco', 'pttk', 'ptkl',
@@ -99,11 +100,12 @@ function editRecipients(data, properties) {
 }
 
 function readScreenPricing(properties) {
-  return JSON.parse(properties.getProperty(SCREEN_PRICING_KEY) || 'null');
+  const saved = JSON.parse(properties.getProperty(SCREEN_PRICING_KEY) || 'null');
+  return saved && {...SCREEN_PRICING_OPTIONS, ...saved};
 }
 
 function screenPricingResponse(properties) {
-  return {screenPricing: true, result: 'success', settings: readScreenPricing(properties)};
+  return {screenPricing: true, screenPricingOptions: true, result: 'success', settings: readScreenPricing(properties)};
 }
 
 function editScreenPricing(data, properties) {
@@ -124,13 +126,21 @@ function editScreenPricing(data, properties) {
       SCREEN_RATE_KEYS.some(key => !Number.isFinite(rates[key]) || rates[key] < 0 || rates[key] > 1000000)) {
     return orderError('Enter valid rates and a price adjustment between −100% and +100%.');
   }
-  const revision = readScreenPricing(properties)?.revision ?? 0;
+  const saved = readScreenPricing(properties);
+  const revision = saved?.revision ?? 0;
   if (revision !== next.revision) {
     return {result: 'conflict', message: 'Prices changed since you opened the editor. Reload saved prices before editing.'};
   }
-  const settings = {revision: revision + 1, adjustment: next.adjustment, rates};
+  const currentOptions = saved ?? SCREEN_PRICING_OPTIONS;
+  const roundUp = next.roundUp === undefined ? currentOptions.roundUp : next.roundUp;
+  const bulkLaborDiscount = next.bulkLaborDiscount === undefined ? currentOptions.bulkLaborDiscount : next.bulkLaborDiscount;
+  if (typeof roundUp !== 'boolean' || !Number.isFinite(bulkLaborDiscount) ||
+      bulkLaborDiscount < 0 || bulkLaborDiscount > 100) {
+    return orderError('Enter a bulk labor discount between 0% and 100% and select a rounding option.');
+  }
+  const settings = {revision: revision + 1, adjustment: next.adjustment, rates, roundUp, bulkLaborDiscount};
   properties.setProperty(SCREEN_PRICING_KEY, JSON.stringify(settings));
-  return {result: 'success', settings};
+  return {screenPricingOptions: true, result: 'success', settings};
 }
 
 function sendOrder(data, properties) {

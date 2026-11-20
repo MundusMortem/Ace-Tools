@@ -5,14 +5,13 @@
 .price-fields[hidden], #pricing-admin [hidden] { display: none; }
 .price-fields input, .price-fields select { display: block; margin-top: 6px; }
 .price-addons { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }
+.order-panel .pricing-checkbox { display: flex; align-items: center; gap: 8px; }
+.order-panel .pricing-checkbox input { width: 1rem; height: 1rem; margin: 0; accent-color: #d83251; }
 #estimate h3 { margin: 22px 0 0; }
 .price-summary { position: sticky; top: 16px; }
-.price-summary dl { margin: 10px 0; }
-.price-summary dl div { display: flex; gap: 12px; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ffffff14; }
-.price-summary dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.price-summary .quote-final { font-size: 1.15rem; font-weight: 700; color: #ff8798; }
-.price-summary summary, #price-list summary { cursor: pointer; font-weight: 650; }
-#quote-details { margin-top: 20px; }
+#quote { display: block; margin-top: 10px; font-size: 1.15rem; font-weight: 700; color: #ff8798; font-variant-numeric: tabular-nums; }
+#quote[hidden] { display: none; }
+#price-list summary { cursor: pointer; font-weight: 650; }
 #pricing-admin { width: min(100% - 32px, 680px); max-height: calc(100% - 32px); }
 #pricing-admin::backdrop { background: #09080cd9; }
 .price-adjuster { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
